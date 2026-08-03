@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240" role="img" aria-label="ByteCommerce">
+  <!-- Rute C - Monogram lockup: badge aksen "BC" + brand dot + wordmark kapital -->
+  <rect x="20" y="14" width="160" height="160" rx="36" fill="#2563EB"/>
+  <text x="100" y="126" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="96" font-weight="800" fill="#FFFFFF">BC</text>
+  <rect x="96" y="186" width="8" height="8" rx="2" fill="#2563EB"/>
+  <text x="100" y="224" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="600" letter-spacing="3" textLength="180" lengthAdjust="spacingAndGlyphs" fill="#0F172A">BYTECOMMERCE</text>
+</svg>

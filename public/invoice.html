@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice Pesanan - ByteCommerce</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ===== NAVBAR ===== -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+            <a href="home.html" class="navbar-brand" aria-label="ByteCommerce">
+        <svg viewBox="0 0 560 84" role="img" aria-label="ByteCommerce" xmlns="http://www.w3.org/2000/svg">
+          <rect x="24" y="14" width="96" height="18" rx="9" style="fill:var(--fg)"/>
+          <rect x="28" y="28" width="88" height="52" rx="11" style="fill:var(--accent)"/>
+          <rect x="52" y="44" width="40" height="8" rx="4" style="fill:var(--on-accent)"/>
+          <rect x="52" y="62" width="26" height="8" rx="4" style="fill:var(--on-accent)"/>
+          <text x="150" y="70" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="52" font-weight="700" letter-spacing="-1" textLength="330" lengthAdjust="spacingAndGlyphs"><tspan style="fill:var(--fg)">Byte</tspan><tspan style="fill:var(--accent)">Commerce</tspan></text>
+        </svg>
+      </a>
+      <ul class="navbar-links">
+        <li><a href="home.html">Beranda</a></li>
+        <li><a href="#">Produk</a></li>
+        <li><a href="#">Flash Sale</a></li>
+        <li><a href="#">Bantuan</a></li>
+      </ul>
+      <div class="navbar-auth">
+        <a href="auth.html" class="btn btn-ghost">Masuk</a>
+        <a href="auth.html" class="btn btn-primary">Daftar</a>
+      </div>
+    </div>
+  </nav>
+
+
+  <!-- ===== STATE A: PESANAN BERHASIL ===== -->
+  <section class="page-lg">
+    <div class="container">
+
+      <div class="card" style="max-width:560px; margin:0 auto; border-color:var(--success);">
+
+        <!-- Header -->
+        <div class="invoice-header">
+          <div class="invoice-icon success">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+          <div style="margin-bottom:1rem;">
+            <span class="badge badge-success">LUNAS</span>
+          </div>
+          <h2>Pesanan Berhasil!</h2>
+          <p class="invoice-id mono text-muted" style="margin-top:0.5rem;">INV/BC/20260730/0001</p>
+          <p class="text-muted" style="font-size:0.85rem; margin-top:0.25rem;">30 Juli 2026 - 21:58 WIB</p>
+        </div>
+
+        <hr style="border:none; border-top:1px solid var(--border); margin-bottom:1.5rem;">
+
+        <!-- Detail Pesanan -->
+        <div class="invoice-details">
+          <p class="eyebrow">Detail Pesanan</p>
+
+          <div class="invoice-row">
+            <span>Smartwatch X100 - 1× Rp 899.000</span>
+            <span class="mono">Rp 899.000</span>
+          </div>
+          <div class="invoice-row">
+            <span>Wireless Earbuds Pro - 2× Rp 549.000</span>
+            <span class="mono">Rp 1.098.000</span>
+          </div>
+
+          <div class="invoice-row" style="border-top:1px solid var(--border); padding-top:0.75rem; margin-top:0.25rem;">
+            <span>Subtotal</span>
+            <span class="mono">Rp 1.997.000</span>
+          </div>
+          <div class="invoice-row">
+            <span class="text-muted">Diskon Flash Sale</span>
+            <span class="mono text-muted">−Rp 400.000</span>
+          </div>
+          <div class="invoice-row">
+            <span>Ongkos Kirim (JNE Reguler)</span>
+            <span class="mono">Rp 15.000</span>
+          </div>
+
+          <div class="invoice-row invoice-total" style="border-top:2px solid var(--fg); padding-top:0.85rem; margin-top:0.25rem;">
+            <span>Total Pembayaran</span>
+            <span class="mono">Rp 1.612.000</span>
+          </div>
+        </div>
+
+        <hr style="border:none; border-top:1px solid var(--border); margin-bottom:1.5rem;">
+
+        <!-- Informasi Pengiriman -->
+        <div style="text-align:left; margin-bottom:1.5rem;">
+          <p class="eyebrow">Informasi Pengiriman</p>
+          <div style="background:var(--bg); border-radius:var(--radius-sm); padding:1rem 1.25rem; margin-top:0.5rem;">
+            <p style="font-weight:600; margin-bottom:0.35rem;">Budi Santoso</p>
+            <p style="font-size:0.9rem; color:var(--muted); line-height:1.5; margin-bottom:0.25rem;">Jl. Sudirman No. 123, Jakarta Selatan 12190</p>
+            <p style="font-size:0.9rem; color:var(--muted); margin-bottom:0.25rem;">No. Telp: <span class="mono">+62 812-3456-7890</span></p>
+            <p style="font-size:0.9rem;">Kurir: <strong>JNE Reguler</strong> <span class="text-muted">(estimasi 3–4 hari)</span></p>
+          </div>
+        </div>
+
+        <!-- Tombol Aksi -->
+        <div style="display:flex; gap:0.75rem;">
+          <a href="#" class="btn btn-primary" style="flex:1;">Lacak Pesanan</a>
+          <a href="home.html" class="btn btn-outline" style="flex:1;">Kembali Belanja</a>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ===== STATE B: MENUNGGU PEMBAYARAN ===== -->
+  <section class="page">
+    <div class="container">
+
+      <div style="max-width:560px; margin:0 auto;">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Simulasi State</p>
+            <h3>Menunggu Pembayaran</h3>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="max-width:560px; margin:0 auto; border-color:var(--warning);">
+
+        <!-- Header -->
+        <div class="invoice-header">
+          <div class="invoice-icon" style="background:var(--warning-soft); color:var(--warning);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </div>
+          <div style="margin-bottom:1rem;">
+            <span class="badge badge-warning">MENUNGGU PEMBAYARAN</span>
+          </div>
+          <h2>Pesanan Dibuat</h2>
+          <p class="invoice-id mono text-muted" style="margin-top:0.5rem;">INV/BC/20260730/0002</p>
+          <p class="text-muted" style="font-size:0.85rem; margin-top:0.25rem;">30 Juli 2026 - 22:10 WIB</p>
+        </div>
+
+        <hr style="border:none; border-top:1px solid var(--border); margin-bottom:1.5rem;">
+
+        <!-- Detail Pesanan -->
+        <div class="invoice-details">
+          <p class="eyebrow">Detail Pesanan</p>
+
+          <div class="invoice-row">
+            <span>Smartwatch X100 - 1× Rp 899.000</span>
+            <span class="mono">Rp 899.000</span>
+          </div>
+          <div class="invoice-row">
+            <span>Wireless Earbuds Pro - 2× Rp 549.000</span>
+            <span class="mono">Rp 1.098.000</span>
+          </div>
+
+          <div class="invoice-row" style="border-top:1px solid var(--border); padding-top:0.75rem; margin-top:0.25rem;">
+            <span>Subtotal</span>
+            <span class="mono">Rp 1.997.000</span>
+          </div>
+          <div class="invoice-row">
+            <span class="text-muted">Diskon Flash Sale</span>
+            <span class="mono text-muted">−Rp 400.000</span>
+          </div>
+          <div class="invoice-row">
+            <span>Ongkos Kirim (JNE Reguler)</span>
+            <span class="mono">Rp 15.000</span>
+          </div>
+
+          <div class="invoice-row invoice-total" style="border-top:2px solid var(--fg); padding-top:0.85rem; margin-top:0.25rem;">
+            <span>Total Pembayaran</span>
+            <span class="mono">Rp 1.612.000</span>
+          </div>
+        </div>
+
+        <hr style="border:none; border-top:1px solid var(--border); margin-bottom:1.5rem;">
+
+        <!-- Instruksi Pembayaran -->
+        <div style="text-align:left; margin-bottom:1.5rem;">
+          <p class="eyebrow">Instruksi Pembayaran</p>
+          <p style="font-size:0.9rem; color:var(--muted); margin:0.5rem 0 1rem; line-height:1.5;">
+            Silakan lakukan pembayaran sebesar <strong style="color:var(--fg);">Rp 1.612.000</strong> ke rekening berikut:
+          </p>
+
+          <div style="display:flex; flex-direction:column; gap:0.75rem;">
+            <div style="display:flex; align-items:center; gap:0.75rem; background:var(--bg); border-radius:var(--radius-sm); padding:0.85rem 1rem;">
+              <div style="width:2.5rem; height:2.5rem; border-radius:var(--radius-sm); background:var(--accent-soft); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                  <line x1="2" y1="10" x2="22" y2="10"></line>
+                </svg>
+              </div>
+              <div style="flex:1; min-width:0;">
+                <p style="font-weight:600; font-size:0.9rem;">Bank BCA</p>
+                <p class="mono" style="font-size:0.9rem; color:var(--muted); margin-top:0.1rem;">1234567890</p>
+                <p style="font-size:0.8rem; color:var(--muted); margin-top:0.1rem;">a.n. PT ByteCommerce</p>
+              </div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:0.75rem; background:var(--bg); border-radius:var(--radius-sm); padding:0.85rem 1rem;">
+              <div style="width:2.5rem; height:2.5rem; border-radius:var(--radius-sm); background:var(--warning-soft); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                  <line x1="2" y1="10" x2="22" y2="10"></line>
+                </svg>
+              </div>
+              <div style="flex:1; min-width:0;">
+                <p style="font-weight:600; font-size:0.9rem;">Bank Mandiri</p>
+                <p class="mono" style="font-size:0.9rem; color:var(--muted); margin-top:0.1rem;">0987654321</p>
+                <p style="font-size:0.8rem; color:var(--muted); margin-top:0.1rem;">a.n. PT ByteCommerce</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tombol Salin -->
+        <button class="btn btn-outline btn-block" disabled style="opacity:0.6; cursor:not-allowed;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          Salin Nomor Rekening
+        </button>
+
+        <p class="text-muted" style="font-size:0.8rem; margin-top:1rem; text-align:center;">
+          Pembayaran akan diverifikasi otomatis dalam waktu 1×24 jam.
+        </p>
+
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <span>&copy; 2026 ByteCommerce</span>
+      <span>Powered by Flash Sale Engine</span>
+    </div>
+  </footer>
+
+</body>
+</html>

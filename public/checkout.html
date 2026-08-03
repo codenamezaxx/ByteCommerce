@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout - ByteCommerce</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ===== NAVBAR ===== -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+            <a href="home.html" class="navbar-brand" aria-label="ByteCommerce">
+        <svg viewBox="0 0 560 84" role="img" aria-label="ByteCommerce" xmlns="http://www.w3.org/2000/svg">
+          <rect x="24" y="14" width="96" height="18" rx="9" style="fill:var(--fg)"/>
+          <rect x="28" y="28" width="88" height="52" rx="11" style="fill:var(--accent)"/>
+          <rect x="52" y="44" width="40" height="8" rx="4" style="fill:var(--on-accent)"/>
+          <rect x="52" y="62" width="26" height="8" rx="4" style="fill:var(--on-accent)"/>
+          <text x="150" y="70" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="52" font-weight="700" letter-spacing="-1" textLength="330" lengthAdjust="spacingAndGlyphs"><tspan style="fill:var(--fg)">Byte</tspan><tspan style="fill:var(--accent)">Commerce</tspan></text>
+        </svg>
+      </a>
+      <ul class="navbar-links">
+        <li><a href="home.html">Beranda</a></li>
+        <li><a href="#">Produk</a></li>
+        <li><a href="#">Flash Sale</a></li>
+        <li><a href="#">Bantuan</a></li>
+      </ul>
+      <div class="navbar-auth">
+        <a href="auth.html" class="btn btn-ghost">Masuk</a>
+        <a href="auth.html" class="btn btn-primary">Daftar</a>
+      </div>
+    </div>
+  </nav>
+
+
+  <!-- ===== BREADCRUMB ===== -->
+  <div class="container">
+    <div class="breadcrumb">
+      <a href="home.html">Beranda</a> &nbsp;/&nbsp; <a href="cart.html">Keranjang</a> &nbsp;/&nbsp; <span>Checkout</span>
+    </div>
+  </div>
+
+
+  <!-- ===== CHECKOUT MAIN ===== -->
+  <section class="page">
+    <div class="container">
+
+      <div class="section-header" style="margin-bottom:2rem;">
+        <h2>Checkout</h2>
+        <span class="badge badge-warning">Flash Sale</span>
+      </div>
+
+      <!-- 2-Column Grid: form kiri, ringkasan kanan -->
+      <div style="display:grid; grid-template-columns:1fr 380px; gap:2rem; align-items:start;">
+
+        <!-- ============================== -->
+        <!-- KOLOM KIRI: FORM CHECKOUT      -->
+        <!-- ============================== -->
+        <div>
+
+          <!-- --- 1. Detail Pengiriman --- -->
+          <div class="card" style="margin-bottom:1.5rem;">
+            <p class="eyebrow">Detail Pengiriman</p>
+            <h3 style="margin-bottom:1.25rem;">Alamat &amp; Kurir</h3>
+
+            <div class="form-group">
+              <label class="form-label" for="nama">Nama Lengkap</label>
+              <input type="text" id="nama" class="form-input" value="Budi Santoso">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="telepon">No. Telepon</label>
+              <input type="tel" id="telepon" class="form-input" value="+62 812-3456-7890">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="alamat">Alamat Lengkap</label>
+              <textarea id="alamat" class="form-input" rows="3" placeholder="Jalan, nomor rumah, rt/rw, kelurahan">Jl. Melati No. 42, RT 03/RW 05, Kel. Bangka</textarea>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+              <div class="form-group">
+                <label class="form-label" for="kota">Kota</label>
+                <input type="text" id="kota" class="form-input" value="Jakarta Selatan">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="kodepos">Kode Pos</label>
+                <input type="text" id="kodepos" class="form-input" value="12190">
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Pilih Kurir</label>
+              <div class="card card-flat" style="padding:0.75rem 1rem; display:flex; align-items:center; gap:0.75rem; border-color:var(--accent); background:var(--accent-soft);">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                <div>
+                  <span style="font-weight:600; font-size:0.9rem;">JNE Reguler</span>
+                  <span class="text-muted" style="font-size:0.85rem;"> - Rp 15.000 (estimasi 3-4 hari)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+          <!-- --- 2. Metode Pembayaran --- -->
+          <div class="card">
+            <p class="eyebrow">Metode Pembayaran</p>
+            <h3 style="margin-bottom:1.25rem;">Pilih Pembayaran</h3>
+
+            <!-- COD - Aktif -->
+            <div class="card card-flat" style="padding:0.85rem 1rem; margin-bottom:0.75rem; border-color:var(--accent); border-width:2px; background:var(--accent-soft); cursor:pointer;">
+              <div style="display:flex; align-items:center; gap:0.85rem;">
+                <span style="width:20px; height:20px; border-radius:50%; border:2px solid var(--accent); background:var(--accent); display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">
+                  <span style="width:8px; height:8px; border-radius:50%; background:#fff;"></span>
+                </span>
+                <div style="flex:1;">
+                  <div style="font-weight:600; font-size:0.9rem;">COD (Bayar di Tempat)</div>
+                  <div class="text-muted" style="font-size:0.8rem; margin-top:0.15rem;">Bayar langsung saat barang diterima</div>
+                </div>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01"/><path d="M18 12h.01"/></svg>
+              </div>
+            </div>
+
+            <!-- Transfer Bank -->
+            <div class="card card-flat" style="padding:0.85rem 1rem; margin-bottom:0.75rem; cursor:pointer;">
+              <div style="display:flex; align-items:center; gap:0.85rem;">
+                <span style="width:20px; height:20px; border-radius:50%; border:2px solid var(--border); display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;"></span>
+                <div style="flex:1;">
+                  <div style="font-weight:600; font-size:0.9rem;">Transfer Bank</div>
+                  <div class="text-muted" style="font-size:0.8rem; margin-top:0.15rem;">BCA / Mandiri / BRI</div>
+                </div>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round"><rect x="4" y="10" width="16" height="11" rx="1"/><path d="M8 21V10"/><path d="M16 21V10"/><path d="M4 14h16"/><path d="M12 3L3 10h18L12 3z"/></svg>
+              </div>
+            </div>
+
+            <!-- Kartu Kredit -->
+            <div class="card card-flat" style="padding:0.85rem 1rem; cursor:pointer;">
+              <div style="display:flex; align-items:center; gap:0.85rem;">
+                <span style="width:20px; height:20px; border-radius:50%; border:2px solid var(--border); display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;"></span>
+                <div style="flex:1;">
+                  <div style="font-weight:600; font-size:0.9rem;">Kartu Kredit</div>
+                  <div class="text-muted" style="font-size:0.8rem; margin-top:0.15rem;">Visa / Mastercard</div>
+                </div>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="14" x2="10" y2="14"/></svg>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+
+        <!-- ============================== -->
+        <!-- KOLOM KANAN: RINGKASAN PESANAN  -->
+        <!-- ============================== -->
+        <div style="position:sticky; top:5.5rem;">
+          <div class="card" style="padding:1.25rem;">
+            <p class="eyebrow">Ringkasan Pesanan</p>
+            <h3 style="margin-bottom:1.25rem;">Keranjangmu</h3>
+
+            <!-- Produk 1 -->
+            <div style="display:flex; justify-content:space-between; align-items:start; padding:0.75rem 0;">
+              <div style="flex:1; min-width:0;">
+                <div style="font-weight:600; font-size:0.9rem;">Smartwatch X100</div>
+                <div class="text-muted" style="font-size:0.8rem; margin-top:0.15rem;">1x</div>
+              </div>
+              <span class="mono" style="font-weight:600; font-size:0.9rem; white-space:nowrap;">Rp 899.000</span>
+            </div>
+
+            <!-- Produk 2 -->
+            <div style="display:flex; justify-content:space-between; align-items:start; padding:0.75rem 0; border-top:1px solid var(--border);">
+              <div style="flex:1; min-width:0;">
+                <div style="font-weight:600; font-size:0.9rem;">Wireless Earbuds Pro</div>
+                <div class="text-muted" style="font-size:0.8rem; margin-top:0.15rem;">2x</div>
+              </div>
+              <span class="mono" style="font-weight:600; font-size:0.9rem; white-space:nowrap;">Rp 1.098.000</span>
+            </div>
+
+            <!-- Garis pemisah -->
+            <div style="border-top:1px solid var(--border); margin:0.5rem 0;"></div>
+
+            <!-- Subtotal -->
+            <div style="display:flex; justify-content:space-between; padding:0.4rem 0; font-size:0.9rem;">
+              <span class="text-muted">Subtotal</span>
+              <span class="mono" style="font-weight:500;">Rp 1.997.000</span>
+            </div>
+
+            <!-- Diskon Flash Sale -->
+            <div style="display:flex; justify-content:space-between; padding:0.4rem 0; font-size:0.9rem;">
+              <span class="text-muted">Diskon Flash Sale</span>
+              <span class="mono" style="font-weight:600; color:var(--success);">-Rp 400.000</span>
+            </div>
+
+            <!-- Ongkos Kirim -->
+            <div style="display:flex; justify-content:space-between; padding:0.4rem 0; font-size:0.9rem; border-bottom:1px solid var(--border);">
+              <span class="text-muted">Ongkos Kirim</span>
+              <span class="mono" style="font-weight:500;">Rp 15.000</span>
+            </div>
+
+            <!-- Total -->
+            <div style="display:flex; justify-content:space-between; align-items:baseline; padding:0.75rem 0 0.5rem;">
+              <span style="font-weight:600; font-size:0.95rem;">Total</span>
+              <span class="mono" style="font-weight:700; font-size:1.1rem;">Rp 1.612.000</span>
+            </div>
+
+            <!-- Tombol Konfirmasi -->
+            <a href="#" class="btn btn-primary btn-block btn-lg" style="margin-top:0.75rem;">Konfirmasi Pesanan</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ====================================================================== -->
+  <!-- SIMULASI STATE: LOADING                                                -->
+  <!-- ====================================================================== -->
+  <section class="page" style="padding-top:0;">
+    <div class="container">
+      <div style="border:2px dashed var(--border); border-radius:var(--radius-md); padding:2rem; background:var(--surface);">
+        <p class="eyebrow" style="margin-bottom:0.25rem;">Simulasi State: Loading</p>
+        <h3 style="margin-bottom:1.25rem;">Tombol dalam Proses</h3>
+
+        <div style="max-width:480px;">
+          <button class="btn btn-primary btn-block btn-lg loading" disabled>
+            <span class="spinner"></span>
+            <span class="btn-text">Memproses Pesanan...</span>
+          </button>
+          <p class="text-muted" style="font-size:0.85rem; margin-top:0.75rem; text-align:center;">Simulasi proses checkout flash sale - button loading 2 detik</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ====================================================================== -->
+  <!-- SIMULASI HASIL: SUCCESS                                                -->
+  <!-- ====================================================================== -->
+  <section class="page" style="padding-top:0;">
+    <div class="container">
+      <div style="border:2px dashed var(--border); border-radius:var(--radius-md); padding:2rem; background:var(--surface);">
+        <p class="eyebrow" style="margin-bottom:0.25rem;">Simulasi State: Success</p>
+        <h3 style="margin-bottom:1.25rem;">Pesanan Berhasil</h3>
+
+        <div class="invoice-card" style="max-width:520px; text-align:left;">
+          <!-- Ikon Centang -->
+          <div style="margin-bottom:1.5rem;">
+            <div style="width:3.5rem; height:3.5rem; border-radius:50%; background:var(--success-soft); display:inline-flex; align-items:center; justify-content:center;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+            </div>
+          </div>
+
+          <h2 style="margin-bottom:0.5rem;">Pesanan Berhasil!</h2>
+          <p class="text-muted" style="font-size:0.9rem; line-height:1.6; margin-bottom:1.25rem;">
+            Pesanan flash sale kamu sedang diproses. Silakan tunggu konfirmasi dari kurir.
+          </p>
+
+          <!-- Order ID -->
+          <div class="card card-flat" style="padding:0.75rem 1rem; margin-bottom:1.5rem; background:var(--bg);">
+            <div class="text-muted" style="font-size:0.8rem; margin-bottom:0.25rem;">Order ID</div>
+            <span class="mono" style="font-weight:600; font-size:0.95rem;">INV/BC/20260730/0001</span>
+          </div>
+
+          <!-- Tombol Aksi -->
+          <div style="display:flex; gap:0.75rem;">
+            <a href="invoice.html" class="btn btn-primary" style="flex:1; justify-content:center;">Lihat Invoice</a>
+            <a href="home.html" class="btn btn-outline" style="flex:1; justify-content:center;">Kembali Belanja</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ====================================================================== -->
+  <!-- SIMULASI HASIL: OUT OF STOCK                                           -->
+  <!-- ====================================================================== -->
+  <section class="page" style="padding-top:0;">
+    <div class="container">
+      <div style="border:2px dashed var(--border); border-radius:var(--radius-md); padding:2rem; background:var(--surface);">
+        <p class="eyebrow" style="margin-bottom:0.25rem;">Simulasi State: Out of Stock</p>
+        <h3 style="margin-bottom:1.25rem;">Stok Habis</h3>
+
+        <div class="toast toast-error" style="margin-bottom:1.25rem;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+          <span style="font-weight:600;">Stok Habis!</span>
+        </div>
+
+        <p class="text-muted" style="font-size:0.9rem; line-height:1.6; margin-bottom:1.5rem; max-width:480px;">
+          Maaf, stok produk flash sale sudah habis sebelum pesanan kamu diproses.
+        </p>
+
+        <a href="product-detail.html" class="btn btn-primary">Kembali ke Produk</a>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <span>&copy; 2026 ByteCommerce</span>
+      <span>Powered by Flash Sale Engine</span>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Keranjang Belanja - ByteCommerce</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Cart-specific layout helpers */
+    .cart-layout {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 2rem;
+      align-items: start;
+    }
+    .cart-items-col { min-width: 0; }
+
+    .cart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 1.5rem;
+    }
+    .cart-header .text-muted {
+      font-size: 0.9rem;
+    }
+
+    .cart-item-actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .cart-item-total {
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--fg);
+      margin-top: 0.35rem;
+    }
+
+    .cart-remove {
+      margin-left: auto;
+    }
+
+    .voucher-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: flex-end;
+      max-width: 320px;
+    }
+    .voucher-row .form-group {
+      flex: 1;
+      margin-bottom: 0;
+    }
+    .voucher-row .btn {
+      flex-shrink: 0;
+      height: 2.6rem;
+    }
+
+    .cart-summary .summary-row .text-success {
+      color: var(--success);
+      font-weight: 500;
+    }
+
+    .cart-section-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 2.5rem 0 3rem;
+    }
+
+    .state-sim {
+      max-width: 480px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .state-sim-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      line-height: 1;
+    }
+
+    .guest-actions {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+      margin-top: 1.25rem;
+    }
+
+    @media (max-width: 768px) {
+      .cart-layout {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+      .cart-summary {
+        max-width: 100%;
+      }
+      .voucher-row {
+        max-width: 100%;
+      }
+      .cart-header {
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+      .cart-item {
+        flex-wrap: wrap;
+      }
+      .guest-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== NAVBAR ===== -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+            <a href="home.html" class="navbar-brand" aria-label="ByteCommerce">
+        <svg viewBox="0 0 560 84" role="img" aria-label="ByteCommerce" xmlns="http://www.w3.org/2000/svg">
+          <rect x="24" y="14" width="96" height="18" rx="9" style="fill:var(--fg)"/>
+          <rect x="28" y="28" width="88" height="52" rx="11" style="fill:var(--accent)"/>
+          <rect x="52" y="44" width="40" height="8" rx="4" style="fill:var(--on-accent)"/>
+          <rect x="52" y="62" width="26" height="8" rx="4" style="fill:var(--on-accent)"/>
+          <text x="150" y="70" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="52" font-weight="700" letter-spacing="-1" textLength="330" lengthAdjust="spacingAndGlyphs"><tspan style="fill:var(--fg)">Byte</tspan><tspan style="fill:var(--accent)">Commerce</tspan></text>
+        </svg>
+      </a>
+      <ul class="navbar-links">
+        <li><a href="home.html">Beranda</a></li>
+        <li><a href="#">Produk</a></li>
+        <li><a href="#">Flash Sale</a></li>
+        <li><a href="#">Bantuan</a></li>
+      </ul>
+      <div class="navbar-auth">
+        <a href="auth.html" class="btn btn-ghost">Masuk</a>
+        <a href="auth.html" class="btn btn-primary">Daftar</a>
+      </div>
+    </div>
+  </nav>
+
+
+  <!-- ===== SECTION A: KERANJANG DENGAN ITEM ===== -->
+  <section class="page">
+    <div class="container">
+
+      <div class="cart-layout">
+
+        <!-- Kolom Kiri: Items -->
+        <div class="cart-items-col">
+          <div class="cart-header">
+            <h2>Keranjang Belanja</h2>
+            <span class="text-muted">2 item</span>
+          </div>
+
+          <div class="card" style="padding:0;">
+            <div style="padding:0.25rem 1.25rem;">
+
+              <!-- Item 1 -->
+              <div class="cart-item">
+                <div class="ph-img" style="width:64px; height:64px;">Gambar</div>
+                <div class="cart-item-info">
+                  <h4>Smartwatch X100</h4>
+                  <span class="cart-item-price">Rp 899.000</span>
+                  <div class="cart-item-actions">
+                    <div class="qty-control">
+                      <button class="qty-btn" aria-label="Kurangi jumlah">&minus;</button>
+                      <span class="qty-value">1</span>
+                      <button class="qty-btn" aria-label="Tambah jumlah">+</button>
+                    </div>
+                    <span class="cart-item-total">Rp 899.000</span>
+                    <button class="cart-remove" aria-label="Hapus item">&times;</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Item 2 -->
+              <div class="cart-item">
+                <div class="ph-img" style="width:64px; height:64px;">Gambar</div>
+                <div class="cart-item-info">
+                  <h4>Wireless Earbuds Pro</h4>
+                  <span class="cart-item-price">Rp 549.000</span>
+                  <div class="cart-item-actions">
+                    <div class="qty-control">
+                      <button class="qty-btn" aria-label="Kurangi jumlah">&minus;</button>
+                      <span class="qty-value">2</span>
+                      <button class="qty-btn" aria-label="Tambah jumlah">+</button>
+                    </div>
+                    <span class="cart-item-total">Rp 1.098.000</span>
+                    <button class="cart-remove" aria-label="Hapus item">&times;</button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Voucher -->
+          <div style="margin-top:1.5rem;">
+            <p class="form-label" style="margin-bottom:0.5rem;">Kode Voucher</p>
+            <div class="voucher-row">
+              <div class="form-group">
+                <input type="text" class="form-input" placeholder="Masukkan kode voucher" aria-label="Kode voucher">
+              </div>
+              <a href="#" class="btn btn-outline">Pakai</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Kolom Kanan: Summary -->
+        <div>
+          <div class="cart-summary">
+            <h3 style="font-size:1.05rem;">Ringkasan Belanja</h3>
+
+            <div class="summary-row">
+              <span>Subtotal</span>
+              <span class="mono">Rp 1.997.000</span>
+            </div>
+            <div class="summary-row">
+              <span>Diskon Flash Sale</span>
+              <span class="mono text-success" style="color:var(--success);">-Rp 400.000</span>
+            </div>
+            <div class="summary-row">
+              <span>Ongkos Kirim</span>
+              <span class="mono text-success" style="color:var(--success);">Gratis</span>
+            </div>
+            <div class="summary-row" style="padding-top:0.85rem; margin-top:0.25rem;">
+              <span class="summary-total">Total</span>
+              <span class="summary-total">Rp 1.597.000</span>
+            </div>
+
+            <div style="margin-top:1.25rem;">
+              <a href="checkout.html" class="btn btn-primary btn-block btn-lg">Lanjut ke Checkout</a>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+
+  <div class="container"><div class="cart-section-divider"></div></div>
+
+
+  <!-- ===== SECTION B: EMPTY STATE ===== -->
+  <section class="page" style="padding-top:0;">
+    <div class="container">
+      <div class="state-sim">
+        <p class="eyebrow">Simulasi State</p>
+        <div class="empty-state">
+          <div class="state-sim-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+          </div>
+          <h3>Keranjang kamu kosong</h3>
+          <p>Flash sale sedang berlangsung - lihat produk sebelum kehabisan.</p>
+          <a href="home.html" class="btn btn-primary">Mulai Belanja</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <div class="container"><div class="cart-section-divider"></div></div>
+
+
+  <!-- ===== SECTION C: GUEST STATE ===== -->
+  <section class="page" style="padding-top:0;">
+    <div class="container">
+      <div class="state-sim">
+        <p class="eyebrow">Simulasi State: Guest</p>
+        <div class="card" style="text-align:center; max-width:420px; margin:0 auto; padding:2rem 1.5rem;">
+          <p style="margin-bottom:0.25rem; font-size:0.95rem; color:var(--muted); line-height:1.6;">
+            Kamu belum masuk akun. Masuk untuk menyimpan keranjang dan melanjutkan checkout.
+          </p>
+          <div class="guest-actions">
+            <a href="auth.html" class="btn btn-primary">Masuk</a>
+            <a href="auth.html" class="btn btn-outline">Daftar</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <span>&copy; 2026 ByteCommerce</span>
+      <span>Powered by Flash Sale Engine</span>
+    </div>
+  </footer>
+
+</body>
+</html>

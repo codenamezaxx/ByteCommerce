@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "public/admin.html",
+  "entry": "public/admin.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-08-03T07:33:09.489Z",
+  "updatedAt": "2026-08-03T07:33:09.489Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

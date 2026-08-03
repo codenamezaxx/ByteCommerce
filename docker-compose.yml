@@ -1,0 +1,76 @@
+# ============ ByteCommerce Docker Compose ============
+
+services:
+  # Database PostgreSQL Native
+  postgres_db:
+    image: postgres:16-alpine
+    container_name: bytecommerce_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: dev_user
+      POSTGRES_PASSWORD: dev_password
+      POSTGRES_DB: bytecommerce_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./database/seeds.sql:/docker-entrypoint-initdb.d/seeds.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev_user -d bytecommerce_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bytecommerce_net
+
+  # Cache & Rate Limiter Redis
+  redis_cache:
+    image: redis:7-alpine
+    container_name: bytecommerce_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - bytecommerce_net
+
+  # Express.js REST API
+  backend_api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bytecommerce_backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: 5000
+      DATABASE_URL: postgresql://dev_user:dev_password@postgres_db:5432/bytecommerce_db
+      REDIS_URL: redis://redis_cache:6379
+      JWT_SECRET: bytecommerce_jwt_super_secret_key_2026
+      NODE_ENV: production
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - bytecommerce_net
+
+# Named Volumes
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# Bridge Network
+networks:
+  bytecommerce_net:
+    driver: bridge

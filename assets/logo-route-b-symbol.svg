@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 140" role="img" aria-label="ByteCommerce">
+  <!-- Rute B - Simbol + Logotype: "paket data" (tutup tinta, kotak aksen, dua bar data putih) + logotype -->
+  <rect x="24" y="26" width="96" height="26" rx="13" fill="#0F172A"/>
+  <rect x="28" y="48" width="88" height="72" rx="14" fill="#2563EB"/>
+  <rect x="52" y="70" width="40" height="10" rx="5" fill="#FFFFFF"/>
+  <rect x="52" y="90" width="26" height="10" rx="5" fill="#FFFFFF"/>
+  <text x="150" y="96" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="54" font-weight="700" letter-spacing="-1" textLength="340" lengthAdjust="spacingAndGlyphs">
+    <tspan fill="#0F172A">Byte</tspan><tspan fill="#2563EB">Commerce</tspan>
+  </text>
+</svg>

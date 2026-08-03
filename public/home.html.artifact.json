@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "public/home.html",
+  "entry": "public/home.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-08-03T07:33:09.461Z",
+  "updatedAt": "2026-08-03T07:33:09.461Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

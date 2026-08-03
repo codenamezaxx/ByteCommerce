@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - ByteCommerce</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="admin-layout">
+
+  <!-- ════════════════════════════════════════════
+       SIDEBAR
+       ════════════════════════════════════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+            <a href="home.html" class="navbar-brand" aria-label="ByteCommerce Admin">
+        <svg viewBox="0 0 560 84" role="img" aria-label="ByteCommerce" xmlns="http://www.w3.org/2000/svg">
+          <rect x="24" y="14" width="96" height="18" rx="9" style="fill:var(--fg)"/>
+          <rect x="28" y="28" width="88" height="52" rx="11" style="fill:var(--accent)"/>
+          <rect x="52" y="44" width="40" height="8" rx="4" style="fill:var(--on-accent)"/>
+          <rect x="52" y="62" width="26" height="8" rx="4" style="fill:var(--on-accent)"/>
+          <text x="150" y="70" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="52" font-weight="700" letter-spacing="-1" textLength="330" lengthAdjust="spacingAndGlyphs"><tspan style="fill:var(--fg)">Byte</tspan><tspan style="fill:var(--accent)">Commerce</tspan></text>
+        </svg>
+        <span class="admin-suffix">Admin</span>
+      </a>
+    </div>
+
+    <nav>
+      <ul class="sidebar-nav">
+        <li>
+          <a href="#dashboard" class="sidebar-link active">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            Dashboard
+          </a>
+        </li>
+        <li>
+          <a href="#produk" class="sidebar-link">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            Produk
+          </a>
+        </li>
+        <li>
+          <a href="#flash-sale" class="sidebar-link">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Flash Sale
+          </a>
+        </li>
+        <li>
+          <a href="#pesanan" class="sidebar-link">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Pesanan
+          </a>
+        </li>
+        <li>
+          <a href="#pengguna" class="sidebar-link">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Pengguna
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="sidebar-divider"></div>
+
+    <div style="padding: 0 0.75rem;">
+      <a href="#killModal" class="btn btn-danger btn-block">Emergency Stop</a>
+    </div>
+
+    <div class="sidebar-footer">
+      <!-- empty -->
+    </div>
+  </aside>
+
+  <!-- ════════════════════════════════════════════
+       MAIN CONTENT
+       ════════════════════════════════════════════ -->
+  <main class="admin-main">
+
+    <!-- ─── HEADER ─── -->
+    <section class="section-header" style="margin-bottom: 2rem;">
+      <div>
+        <h1 style="margin-bottom: 0.25rem;">Dashboard Admin</h1>
+        <p class="text-muted">Selamat datang, Admin ByteCommerce</p>
+      </div>
+      <a href="#" class="btn btn-outline" style="font-size: 0.85rem;">↻ Refresh Data</a>
+    </section>
+
+    <!-- ─── STAT CARDS ─── -->
+    <section class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-value mono">1,247</div>
+        <div class="stat-label">Total Pesanan</div>
+        <div class="stat-trend up">Naik 12%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value mono">38</div>
+        <div class="stat-label">Pesanan Aktif</div>
+        <div class="stat-trend down">Turun 5%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value mono">892</div>
+        <div class="stat-label">Pengguna Aktif</div>
+        <div class="stat-trend up">Naik 8%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value mono">3</div>
+        <div class="stat-label">Flash Sale Berlangsung</div>
+        <div class="text-muted" style="font-size: 0.8rem; margin-top: 0.5rem;">2 akan datang</div>
+      </div>
+    </section>
+
+    <!-- ─── FLASH SALE MONITOR ─── -->
+    <section class="card" style="margin-bottom: 2rem;">
+      <p class="eyebrow" style="color: var(--danger);">Flash Sale Monitor</p>
+      <div class="section-header" style="margin-bottom: 1rem;">
+        <h2>Flash Sale Aktif</h2>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Produk</th>
+              <th>Harga Flash</th>
+              <th>Stok</th>
+              <th>Sisa</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Smartwatch X100</strong></td>
+              <td class="mono">Rp 899.000</td>
+              <td class="mono">50</td>
+              <td class="mono">12</td>
+              <td><span class="badge badge-success">Aktif</span></td>
+              <td><a href="#" class="btn btn-danger btn-sm">⏹ Hentikan</a></td>
+            </tr>
+            <tr>
+              <td><strong>Wireless Earbuds Pro</strong></td>
+              <td class="mono">Rp 549.000</td>
+              <td class="mono">30</td>
+              <td class="mono">8</td>
+              <td><span class="badge badge-success">Aktif</span></td>
+              <td><a href="#" class="btn btn-danger btn-sm">⏹ Hentikan</a></td>
+            </tr>
+            <tr>
+              <td><strong>Sneaker Run Ultralight</strong></td>
+              <td class="mono">Rp 429.000</td>
+              <td class="mono">100</td>
+              <td class="mono">20</td>
+              <td><span class="badge badge-success">Aktif</span></td>
+              <td><a href="#" class="btn btn-danger btn-sm">⏹ Hentikan</a></td>
+            </tr>
+            <tr>
+              <td><strong>Tas Ransel Urban 30L</strong></td>
+              <td class="mono">Rp 299.000</td>
+              <td class="mono">50</td>
+              <td class="mono">50</td>
+              <td><span class="badge badge-warning">Akan Datang</span></td>
+              <td><a href="#" class="btn btn-ghost btn-sm">Hapus</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top: 1.25rem;">
+        <a href="#" class="btn btn-primary">Buat Flash Sale Baru</a>
+      </div>
+    </section>
+
+    <!-- ─── MANAJEMEN PRODUK ─── -->
+    <section class="card" style="margin-bottom: 2rem;">
+      <div class="section-header">
+        <h2>Manajemen Produk</h2>
+        <a href="#" class="btn btn-outline">+ Tambah Produk</a>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nama Produk</th>
+              <th>Kategori</th>
+              <th>Harga</th>
+              <th>Stok</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Smartwatch X100</strong></td>
+              <td>Elektronik</td>
+              <td class="mono">Rp 1.499.000</td>
+              <td class="mono">50</td>
+              <td><span class="badge badge-success">Aktif</span></td>
+              <td>
+                <a href="#" class="btn btn-ghost btn-sm">Edit</a>
+                <a href="#" class="btn btn-ghost btn-sm" style="color: var(--danger);">Hapus</a>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Wireless Earbuds Pro</strong></td>
+              <td>Elektronik</td>
+              <td class="mono">Rp 899.000</td>
+              <td class="mono">30</td>
+              <td><span class="badge badge-success">Aktif</span></td>
+              <td>
+                <a href="#" class="btn btn-ghost btn-sm">Edit</a>
+                <a href="#" class="btn btn-ghost btn-sm" style="color: var(--danger);">Hapus</a>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Sneaker Run Ultralight</strong></td>
+              <td>Fashion</td>
+              <td class="mono">Rp 799.000</td>
+              <td class="mono">100</td>
+              <td><span class="badge badge-success">Aktif</span></td>
+              <td>
+                <a href="#" class="btn btn-ghost btn-sm">Edit</a>
+                <a href="#" class="btn btn-ghost btn-sm" style="color: var(--danger);">Hapus</a>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Tas Ransel Urban 30L</strong></td>
+              <td>Aksesoris</td>
+              <td class="mono">Rp 499.000</td>
+              <td class="mono">50</td>
+              <td><span class="badge badge-success">Aktif</span></td>
+              <td>
+                <a href="#" class="btn btn-ghost btn-sm">Edit</a>
+                <a href="#" class="btn btn-ghost btn-sm" style="color: var(--danger);">Hapus</a>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Kemeja Oxford Premium</strong></td>
+              <td>Fashion</td>
+              <td class="mono">Rp 249.000</td>
+              <td class="mono">200</td>
+              <td><span class="badge badge-success">Aktif</span></td>
+              <td>
+                <a href="#" class="btn btn-ghost btn-sm">Edit</a>
+                <a href="#" class="btn btn-ghost btn-sm" style="color: var(--danger);">Hapus</a>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Headphone ANC Silent</strong></td>
+              <td>Elektronik</td>
+              <td class="mono">Rp 1.299.000</td>
+              <td class="mono">0</td>
+              <td><span class="badge badge-neutral">Nonaktif</span></td>
+              <td>
+                <a href="#" class="btn btn-ghost btn-sm">Edit</a>
+                <a href="#" class="btn btn-ghost btn-sm" style="color: var(--danger);">Hapus</a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ─── CACHE WARMING STATUS ─── -->
+    <section class="card mb-3">
+      <div class="section-header" style="margin-bottom: 0.75rem;">
+        <h3>Cache Warming Engine</h3>
+        <span class="badge badge-success">Aktif</span>
+      </div>
+      <p class="text-muted" style="font-size: 0.9rem; margin-bottom: 0.5rem;">
+        Auto-warming setiap 5 menit
+      </p>
+      <div class="flex gap-2 items-center mb-2" style="font-size: 0.9rem;">
+        <span>Cache diperbarui: <strong class="mono">30 Jul 2026 21:58</strong></span>
+        <span class="text-muted">•</span>
+        <span>Data: <strong class="mono">1,247</strong> produk siap</span>
+      </div>
+      <a href="#" class="btn btn-outline" disabled style="margin-top: 0.5rem;">Warm Cache Sekarang</a>
+    </section>
+
+    <!-- ─── LOG AKTIVITAS ─── -->
+    <section class="card mb-3">
+      <h3 style="margin-bottom: 1rem;">Log Aktivitas</h3>
+
+      <div style="display: flex; flex-direction: column; gap: 0;">
+        <div style="display: flex; gap: 0.75rem; padding: 0.75rem 0; border-bottom: 1px solid var(--border); align-items: baseline;">
+          <span class="mono text-muted" style="font-size: 0.8rem; white-space: nowrap;">[14:58]</span>
+          <span style="font-size: 0.9rem;">Flash Sale Smartwatch X100 dimulai</span>
+        </div>
+        <div style="display: flex; gap: 0.75rem; padding: 0.75rem 0; border-bottom: 1px solid var(--border); align-items: baseline;">
+          <span class="mono text-muted" style="font-size: 0.8rem; white-space: nowrap;">[14:55]</span>
+          <span style="font-size: 0.9rem;">Cache warming completed (347 produk)</span>
+        </div>
+        <div style="display: flex; gap: 0.75rem; padding: 0.75rem 0; border-bottom: 1px solid var(--border); align-items: baseline;">
+          <span class="mono text-muted" style="font-size: 0.8rem; white-space: nowrap;">[14:30]</span>
+          <span style="font-size: 0.9rem;">✅ Pesanan <span class="mono">#INV/BC/20260730/0001</span> - SUCCESS</span>
+        </div>
+        <div style="display: flex; gap: 0.75rem; padding: 0.75rem 0; border-bottom: 1px solid var(--border); align-items: baseline;">
+          <span class="mono text-muted" style="font-size: 0.8rem; white-space: nowrap;">[14:25]</span>
+          <span style="font-size: 0.9rem;">Pesanan <span class="mono">#INV/BC/20260730/0000</span> - OUT_OF_STOCK</span>
+        </div>
+        <div style="display: flex; gap: 0.75rem; padding: 0.75rem 0; align-items: baseline;">
+          <span class="mono text-muted" style="font-size: 0.8rem; white-space: nowrap;">[14:00]</span>
+          <span style="font-size: 0.9rem;">Stok Wireless Earbuds Pro tersisa 8</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════
+         KILL-SWITCH SIMULATION
+         ════════════════════════════════════════════ -->
+    <section id="killModal" class="mb-3">
+      <h3 style="margin-bottom: 1rem;">Simulasi Kill-Switch</h3>
+
+      <!-- Modal: Confirm Kill-Switch -->
+      <div class="modal-overlay" style="display: flex; position: relative; margin-bottom: 2rem;">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h4 style="margin: 0;">Konfirmasi Emergency Stop</h4>
+            <button class="modal-close" type="button">×</button>
+          </div>
+          <div class="modal-body">
+            <p style="font-size: 0.9rem; line-height: 1.6; margin-bottom: 1rem;">
+              Yakin ingin menghentikan semua Flash Sale? Tindakan ini akan membatalkan semua sesi flash sale yang sedang berlangsung.
+            </p>
+            <span class="badge badge-warning" style="font-size: 0.8rem; padding: 0.35rem 0.75rem;">
+              Tindakan ini dapat dibatalkan dalam 30 detik ke depan
+            </span>
+          </div>
+          <div class="modal-footer">
+            <a href="#" class="btn btn-ghost">Batal</a>
+            <a href="#" class="btn btn-danger">Aktifkan Kill-Switch</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activated State -->
+      <div class="card" style="border-color: var(--danger); border-width: 2px;">
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+          <span class="badge badge-danger" style="font-size: 0.85rem; padding: 0.4rem 0.85rem;">
+            KILL-SWITCH ACTIVATED
+          </span>
+        </div>
+        <p style="font-size: 0.9rem; margin-bottom: 1rem;">
+          Semua sesi flash sale telah dihentikan pada <strong class="mono">30 Jul 2026 21:59</strong>
+        </p>
+        <a href="#" class="btn btn-outline" disabled>Nonaktifkan Kill-Switch</a>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+</body>
+</html>

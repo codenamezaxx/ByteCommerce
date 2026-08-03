@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Environment variables (keep .env.example as committed template)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build output
+.next/
+out/
+dist/
+build/
+coverage/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+#Agents
+.od-skills/
+
+# CodeGraph index (local search index, regenerated on demand)
+.codegraph/
+
+# Docker named volumes live inside the Docker engine, not the repo.
+# If a bind mount points to a host directory, add that directory here.

@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arah Identitas Logo - ByteCommerce</title>
+<style>
+  /* Tokens mencerminkan public/style.css (DESIGN.md) - jangan tambah hue baru */
+  :root {
+    --bg: #FAFBFC; --surface: #FFFFFF; --fg: #0F172A; --muted: #64748B;
+    --border: #E2E8F0; --accent: #2563EB; --accent-hover: #1D4ED8;
+    --on-accent: #FFFFFF; --danger: #DC2626; --success: #059669;
+    --accent-soft: #EFF6FF; --neutral-soft: #F1F5F9; --danger-soft: #FEF2F2;
+    --font-display: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+    --radius-sm: 8px; --radius-md: 12px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.06);
+    --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-body); color: var(--fg); background: var(--bg); line-height: 1.6; }
+  .container { max-width: 980px; margin: 0 auto; padding: 0 1.5rem; }
+  .page { padding: 3rem 0; }
+  h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 700; line-height: 1.2; color: var(--fg); }
+  h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); letter-spacing: -0.025em; }
+  h2 { font-size: clamp(1.35rem, 3vw, 1.75rem); letter-spacing: -0.015em; margin-bottom: 0.5rem; }
+  h3 { font-size: 1.15rem; margin-bottom: 0.35rem; }
+  p { margin-bottom: 0.75rem; }
+  .eyebrow {
+    font-size: 0.8rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.5rem;
+  }
+  .mono { font-family: var(--font-mono); font-size: 0.9rem; }
+  .muted { color: var(--muted); }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); padding: 1.5rem; box-shadow: var(--shadow-sm);
+  }
+  .grid { display: grid; gap: 1rem; }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 760px) { .grid-3, .grid-2 { grid-template-columns: 1fr; } }
+  .hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .hero .container { padding-top: 3.5rem; padding-bottom: 2.5rem; }
+  .route-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 2rem; height: 2rem; padding: 0 0.5rem; margin-bottom: 0.75rem;
+    background: var(--accent); color: var(--on-accent); font-weight: 700;
+    font-size: 0.9rem; border-radius: var(--radius-sm);
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; background: var(--surface); }
+  th, td { text-align: left; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .swatch { display: inline-block; width: 1.1rem; height: 1.1rem; border-radius: 4px; border: 1px solid rgba(0,0,0,.12); vertical-align: -3px; margin-right: 0.4rem; }
+  .stage {
+    display: flex; gap: 1rem; flex-wrap: wrap; padding: 1.25rem;
+    border-radius: var(--radius-md); border: 1px solid var(--border); margin: 1rem 0;
+  }
+  .stage-light { background: var(--bg); }
+  .stage-surface { background: var(--surface); }
+  .stage-dark { background: #0F172A; }
+  .stage-danger { background: var(--danger); }
+  .stage-box { flex: 1 1 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; padding: 1rem; }
+  .stage-box svg { max-width: 100%; height: auto; }
+  .stage-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+  .spec-list { list-style: none; }
+  .spec-list li { padding: 0.35rem 0 0.35rem 1.25rem; position: relative; font-size: 0.92rem; }
+  .spec-list li::before { content: ""; position: absolute; left: 0; top: 0.8rem; width: 7px; height: 7px; border-radius: 2px; background: var(--accent); }
+  pre {
+    background: var(--fg); color: #E2E8F0; border-radius: var(--radius-sm);
+    padding: 1rem; overflow-x: auto; font-family: var(--font-mono); font-size: 0.82rem;
+    line-height: 1.5; margin: 0.75rem 0;
+  }
+  .prompt {
+    background: var(--accent-soft); border: 1px solid #BFDBFE;
+    border-radius: var(--radius-sm); padding: 0.85rem 1rem; font-size: 0.9rem; margin: 0.6rem 0;
+  }
+  .do, .dont { border-radius: var(--radius-sm); padding: 0.9rem 1rem; font-size: 0.9rem; }
+  .do { background: var(--accent-soft); border: 1px solid #BFDBFE; }
+  .dont { background: var(--danger-soft); border: 1px solid #FECACA; }
+  .chip {
+    display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px;
+    background: var(--neutral-soft); color: var(--muted); font-size: 0.75rem; font-weight: 600;
+    margin-right: 0.4rem; margin-bottom: 0.4rem;
+  }
+  .foot { border-top: 1px solid var(--border); padding: 2rem 0 3rem; color: var(--muted); font-size: 0.85rem; }
+  .section { margin-top: 3rem; }
+</style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header class="hero">
+  <div class="container">
+    <p class="eyebrow">Identitas Brand · ByteCommerce</p>
+    <h1>Arah Identitas Logo</h1>
+    <p style="max-width: 42rem;">
+      Tiga arah logo yang orisinal dan siap dipakai pada prototipe yang berjalan sekarang.
+      Semua arah terikat pada token desain di <span class="mono">DESIGN.md</span> dan
+      <span class="mono">public/style.css</span>: flat, geometris, satu aksen biru
+      <span class="swatch" style="background:#2563EB"></span><span class="mono">#2563EB</span>,
+      tanpa gradien, tanpa bayangan, tanpa warna indigo.
+    </p>
+    <div style="margin-top: 1rem;">
+      <span class="chip">Status: draf arah</span>
+      <span class="chip">Tanggal: 03-08-2026</span>
+      <span class="chip">Dasar: DESIGN.md</span>
+      <span class="chip">Lokale: id</span>
+    </div>
+  </div>
+</header>
+
+<main class="container page">
+
+  <!-- ===== RINGKASAN ===== -->
+  <section>
+    <p class="eyebrow">Ringkasan Eksekutif</p>
+    <div class="grid grid-3">
+      <div class="card">
+        <h3>Rute A · Wordmark</h3>
+        <p class="muted" style="font-size:0.9rem;">
+          Tipografi murni: <strong style="color:var(--fg)">Byte</strong> tinta dan
+          <strong style="color:var(--accent)">Commerce</strong> aksen, ditutup brand dot
+          persegi. Paling cepat dipakai — menggantikan teks navbar yang ada tanpa mengubah struktur.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Rute B · Simbol + Logotype</h3>
+        <p class="muted" style="font-size:0.9rem;">
+          Mark "paket data": kotak aksen dengan tutup tinta dan dua bar data putih, di samping
+          logotype. Simbol yang berdiri sendiri untuk favicon, aplikasi, dan sosial media.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Rute C · Monogram Lockup</h3>
+        <p class="muted" style="font-size:0.9rem;">
+          Badge aksen persegi membulat berisi monogram <strong style="color:var(--fg)">BC</strong>,
+          brand dot, dan wordmark kapital. Paling kompak; ideal untuk avatar dan ikon aplikasi.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== PALET ===== -->
+  <section class="section">
+    <p class="eyebrow">Palet Inti</p>
+    <h2>Satu Palet, Tiga Arah</h2>
+    <p>Warna identitas tidak memperkenalkan hue baru — semuanya diambil dari token desain. Variasi antar rute ada pada proporsi pemakaian, bukan nilai warna.</p>
+    <div class="card" style="padding:0.5rem; overflow-x:auto;">
+      <table>
+        <thead>
+          <tr><th>Peran</th><th>Token</th><th>Nilai</th><th>Pakai untuk</th><th>Kontras di latar terang/gelap</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="swatch" style="background:#0F172A"></span>Tinta utama</td>
+            <td class="mono">--fg</td>
+            <td class="mono">#0F172A</td>
+            <td>"Byte" pada wordmark, tutup paket, wordmark kapital Rute C</td>
+            <td class="mono">≈18:1 di #FFFFFF (AAA)</td>
+          </tr>
+          <tr>
+            <td><span class="swatch" style="background:#2563EB"></span>Aksen</td>
+            <td class="mono">--accent</td>
+            <td class="mono">#2563EB</td>
+            <td>"Commerce", badan paket, badge monogram, brand dot</td>
+            <td class="mono">≈5.1:1 di #FFFFFF (AA)</td>
+          </tr>
+          <tr>
+            <td><span class="swatch" style="background:#FFFFFF"></span>Permukaan / on-aksen</td>
+            <td class="mono">--surface / --on-accent</td>
+            <td class="mono">#FFFFFF</td>
+            <td>Badan paket pada monokrom, huruf BC di badge, varian terang</td>
+            <td class="mono">≈5.1:1 di #2563EB, ≈4.8:1 di #DC2626 (AA)</td>
+          </tr>
+          <tr>
+            <td><span class="swatch" style="background:#60A5FA"></span>Aksen gelap</td>
+            <td class="mono">--accent (dark)</td>
+            <td class="mono">#60A5FA</td>
+            <td>Varian mode gelap: "Commerce", badge, brand dot di atas #0F172A</td>
+            <td class="mono">≈7:1 di #0F172A (AAA)</td>
+          </tr>
+          <tr>
+            <td><span class="swatch" style="background:#F1F5F9"></span>Tinta gelap</td>
+            <td class="mono">--fg (dark)</td>
+            <td class="mono">#F1F5F9</td>
+            <td>"Byte" dan wordmark pada varian mode gelap</td>
+            <td class="mono">≈16.5:1 di #0F172A (AAA)</td>
+          </tr>
+          <tr>
+            <td><span class="swatch" style="background:#DC2626"></span>Danger (banner)</td>
+            <td class="mono">--danger</td>
+            <td class="mono">#DC2626</td>
+            <td>Bukan warna logo — permukaan uji untuk varian satu warna putih</td>
+            <td class="mono">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== RUTE A ===== -->
+  <section class="section">
+    <p class="eyebrow">Rute A</p>
+    <h2>Wordmark Tipografis</h2>
+    <p>
+      Nama brand dibaca dalam satu tarikan napas: <strong>Byte</strong> tinta menyampaikan
+      ketegasan teknis, <strong>Commerce</strong> aksen menandakan bagian komersial,
+      dan brand dot persegi di ujungnya adalah "byte" — unit data terkecil yang jadi tanda tangan.
+      Arah ini melanjutkan pola navbar prototipe saat ini, sehingga migrasinya tanpa gesekan.
+    </p>
+    <div class="stage stage-surface">
+      <div class="stage-box">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 470 100" role="img" aria-label="ByteCommerce">
+          <text x="0" y="72" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="56" font-weight="700" letter-spacing="-1" textLength="400" lengthAdjust="spacingAndGlyphs">
+            <tspan fill="#0F172A">Byte</tspan><tspan fill="#2563EB">Commerce</tspan>
+          </text>
+          <rect x="414" y="47" width="14" height="14" rx="4" fill="#2563EB"/>
+        </svg>
+        <span class="stage-label" style="color:var(--muted)">Full color · permukaan terang</span>
+      </div>
+      <div class="stage-box" style="background:#0F172A; border-color:#334155;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 470 100" role="img" aria-label="ByteCommerce">
+          <text x="0" y="72" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="56" font-weight="700" letter-spacing="-1" textLength="400" lengthAdjust="spacingAndGlyphs">
+            <tspan fill="#F1F5F9">Byte</tspan><tspan fill="#60A5FA">Commerce</tspan>
+          </text>
+          <rect x="414" y="47" width="14" height="14" rx="4" fill="#60A5FA"/>
+        </svg>
+        <span class="stage-label" style="color:#94A3B8">Varian gelap · di atas #0F172A</span>
+      </div>
+    </div>
+    <h3>Spesifikasi</h3>
+    <ul class="spec-list">
+      <li><strong>Tipografi:</strong> sans-serif geometris, bobot 700. Font stack produksi: <span class="mono">--font-display</span>. Untuk raster/outline, gunakan font dengan kontras aksen horizontal netral (mis. Inter SemiBold, lalu outline ke path).</li>
+      <li><strong>Warna:</strong> "Byte" <span class="mono">#0F172A</span>, "Commerce" <span class="mono">#2563EB</span>, dot <span class="mono">#2563EB</span>.</li>
+      <li><strong>Tracking:</strong> rapat (-1 hingga -2% em) untuk kesan teknis; jangan melebihi -3%.</li>
+      <li><strong>Anatomi:</strong> dot persegi membulat (rx ≈ 28% sisi) sejajar garis dasar, tingginya ≈ 0,25 em.</li>
+      <li><strong>Varian:</strong> full color · monokrom tinta (dua kata + dot semua #0F172A) · monokrom putih (semua #FFFFFF untuk permukaan gelap/banner).</li>
+    </ul>
+    <p class="prompt"><strong>Prompt generasi (salurkan ke image model bila perlu raster):</strong><br>
+    <span class="mono">Minimal flat wordmark logo for "ByteCommerce", a professional e-commerce platform. Geometric sans-serif lettering, the name split in two colors: "Byte" in deep ink #0F172A and "Commerce" in flat royal blue #2563EB, tight tracking, a small solid blue rounded square as a brand dot after the wordmark. Flat vector, solid colors only, no gradients, no shadows, no 3D, no serif, no icons, no extra words. Centered on plain white background, square 1:1.</span></p>
+  </section>
+
+  <!-- ===== RUTE B ===== -->
+  <section class="section">
+    <p class="eyebrow">Rute B</p>
+    <h2>Simbol Paket Data + Logotype</h2>
+    <p>
+      Simbolnya memadukan dua kata dalam nama: <strong>paket</strong> (kotak aksen) dan
+      <strong>data</strong> (tutup tinta plus dua bar putih). Tutup yang lebih lebar dari badan
+      memberi siluet kotak kirim; bar putih dengan lebar berbeda memberi kesan "byte" yang
+      sedang ditransfer. Simbol berdiri sendiri dan tetap terbaca pada ukuran kecil.
+    </p>
+    <div class="stage stage-surface">
+      <div class="stage-box">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 140" role="img" aria-label="ByteCommerce">
+          <rect x="24" y="26" width="96" height="26" rx="13" fill="#0F172A"/>
+          <rect x="28" y="48" width="88" height="72" rx="14" fill="#2563EB"/>
+          <rect x="52" y="70" width="40" height="10" rx="5" fill="#FFFFFF"/>
+          <rect x="52" y="90" width="26" height="10" rx="5" fill="#FFFFFF"/>
+          <text x="150" y="96" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="54" font-weight="700" letter-spacing="-1" textLength="340" lengthAdjust="spacingAndGlyphs">
+            <tspan fill="#0F172A">Byte</tspan><tspan fill="#2563EB">Commerce</tspan>
+          </text>
+        </svg>
+        <span class="stage-label" style="color:var(--muted)">Full color · lockup horizontal</span>
+      </div>
+      <div class="stage-box" style="background:#0F172A; border-color:#334155;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 140" role="img" aria-label="ByteCommerce">
+          <rect x="24" y="26" width="96" height="26" rx="13" fill="#F1F5F9"/>
+          <rect x="28" y="48" width="88" height="72" rx="14" fill="#60A5FA"/>
+          <rect x="52" y="70" width="40" height="10" rx="5" fill="#0F172A"/>
+          <rect x="52" y="90" width="26" height="10" rx="5" fill="#0F172A"/>
+          <text x="150" y="96" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="54" font-weight="700" letter-spacing="-1" textLength="340" lengthAdjust="spacingAndGlyphs">
+            <tspan fill="#F1F5F9">Byte</tspan><tspan fill="#60A5FA">Commerce</tspan>
+          </text>
+        </svg>
+        <span class="stage-label" style="color:#94A3B8">Varian gelap · di atas #0F172A</span>
+      </div>
+    </div>
+    <h3>Spesifikasi</h3>
+    <ul class="spec-list">
+      <li><strong>Mark:</strong> tutup tinta (bobot visual 1), badan aksen (bobot 3), dua bar putih (bobot 1 dan 0,65). Rasio mark : tinggi logotype ≈ 1,3 : 1.</li>
+      <li><strong>Warna:</strong> tutup <span class="mono">#0F172A</span>, badan <span class="mono">#2563EB</span>, bar <span class="mono">#FFFFFF</span>, logotype split tinta/aksen.</li>
+      <li><strong>Gap:</strong> jarak mark–logotype = 1 × tinggi bar putih (10 unit pada konsep).</li>
+      <li><strong>Simbol mandiri:</strong> mark tanpa logotype untuk favicon, avatar, dan penanda notifikasi; selalu pakai versi badge/rounded yang sama.</li>
+      <li><strong>Varian:</strong> full color · mark saja · monokrom tinta · monokrom putih.</li>
+    </ul>
+    <p class="prompt"><strong>Prompt generasi:</strong><br>
+    <span class="mono">Minimal flat logo for "ByteCommerce", an e-commerce platform. A clean geometric symbol on the left: an abstract delivery box built from a rounded rectangle body in flat royal blue #2563EB, an ink #0F172A rounded lid bar slightly wider than the body, and two short white data bars inside, all flat. To the right the logotype "ByteCommerce": "Byte" in deep ink #0F172A and "Commerce" in flat royal blue #2563EB. Flat vector, solid colors only, no gradients, no shadows, no 3D, no serif, no extra words. Horizontally centered on plain white background, square 1:1.</span></p>
+  </section>
+
+  <!-- ===== RUTE C ===== -->
+  <section class="section">
+    <p class="eyebrow">Rute C</p>
+    <h2>Monogram Lockup</h2>
+    <p>
+      Badge aksen persegi membulat berisi monogram <strong>BC</strong> putih dengan bobot
+      tebal — kompak dan langsung dikenali di ukuran ikon. Brand dot kecil memisahkan badge
+      dari wordmark kapital "BYTECOMMERCE" di bawahnya, menyatukan rute ini dengan Rute A.
+    </p>
+    <div class="stage stage-surface">
+      <div class="stage-box">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240" role="img" aria-label="ByteCommerce">
+          <rect x="20" y="14" width="160" height="160" rx="36" fill="#2563EB"/>
+          <text x="100" y="126" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="96" font-weight="800" fill="#FFFFFF">BC</text>
+          <rect x="96" y="186" width="8" height="8" rx="2" fill="#2563EB"/>
+          <text x="100" y="224" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="600" letter-spacing="3" textLength="180" lengthAdjust="spacingAndGlyphs" fill="#0F172A">BYTECOMMERCE</text>
+        </svg>
+        <span class="stage-label" style="color:var(--muted)">Full color · lockup vertikal</span>
+      </div>
+      <div class="stage-box" style="background:#0F172A; border-color:#334155;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240" role="img" aria-label="ByteCommerce">
+          <rect x="20" y="14" width="160" height="160" rx="36" fill="#60A5FA"/>
+          <text x="100" y="126" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="96" font-weight="800" fill="#0F172A">BC</text>
+          <rect x="96" y="186" width="8" height="8" rx="2" fill="#60A5FA"/>
+          <text x="100" y="224" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="600" letter-spacing="3" textLength="180" lengthAdjust="spacingAndGlyphs" fill="#F1F5F9">BYTECOMMERCE</text>
+        </svg>
+        <span class="stage-label" style="color:#94A3B8">Varian gelap · di atas #0F172A</span>
+      </div>
+    </div>
+    <h3>Spesifikasi</h3>
+    <ul class="spec-list">
+      <li><strong>Badge:</strong> persegi membulat, rx ≈ 22% sisi. Monogram "BC" bobot 800, tinggi ≈ 60% sisi badge, sejajar optis di tengah.</li>
+      <li><strong>Warna:</strong> badge <span class="mono">#2563EB</span>, huruf <span class="mono">#FFFFFF</span>, dot aksen, wordmark <span class="mono">#0F172A</span>.</li>
+      <li><strong>Wordmark:</strong> kapital, tracking lebar (≈ +3 unit pada konsep 20px), bobot 600.</li>
+      <li><strong>Varian:</strong> lockup vertikal · badge saja (avatar/ikon) · monokrom tinta · monokrom putih.</li>
+      <li><strong>Batasan:</strong> jangan ratakan wordmark menjadi satu baris di samping badge pada lebar di bawah 200 unit konsep.</li>
+    </ul>
+    <p class="prompt"><strong>Prompt generasi:</strong><br>
+    <span class="mono">Minimal flat monogram lockup logo for e-commerce platform "ByteCommerce". A rounded square badge in flat royal blue #2563EB containing a white geometric monogram combining the letters B and C in bold overlapping sans-serif forms, with a small solid accent square below the badge, and the wordmark "BYTECOMMERCE" in deep ink #0F172A set below in spaced-out sans-serif capitals. Flat vector, solid colors only, no gradients, no shadows, no 3D, no serif, no extra words. Centered on plain white background, square 1:1.</span></p>
+  </section>
+
+  <!-- ===== VARIAN & MODE GELAP ===== -->
+  <section class="section">
+    <p class="eyebrow">Varian &amp; Mode Gelap</p>
+    <h2>Satu Warna di Permukaan Khusus</h2>
+    <p>
+      Pada permukaan gelap (<span class="mono">#0F172A</span>), gunakan varian gelap
+      (tinta <span class="mono">#F1F5F9</span> + aksen <span class="mono">#60A5FA</span>).
+      Pada banner flash-sale (<span class="mono">#DC2626</span>) dan permukaan berwarna lain,
+      gunakan monokrom putih penuh — satu warna, tanpa aksen, agar tidak bergantung pada
+      kontras hue.
+    </p>
+    <div class="stage stage-danger">
+      <div class="stage-box">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 470 100" role="img" aria-label="ByteCommerce">
+          <text x="0" y="72" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="56" font-weight="700" letter-spacing="-1" textLength="400" lengthAdjust="spacingAndGlyphs">
+            <tspan fill="#FFFFFF">Byte</tspan><tspan fill="#FFFFFF">Commerce</tspan>
+          </text>
+          <rect x="414" y="47" width="14" height="14" rx="4" fill="#FFFFFF"/>
+        </svg>
+        <span class="stage-label" style="color:rgba(255,255,255,.85)">A · putih di #DC2626</span>
+      </div>
+      <div class="stage-box">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 140" role="img" aria-label="ByteCommerce">
+          <rect x="24" y="26" width="96" height="26" rx="13" fill="#FFFFFF"/>
+          <rect x="28" y="48" width="88" height="72" rx="14" fill="#FFFFFF"/>
+          <rect x="52" y="70" width="40" height="10" rx="5" fill="#DC2626"/>
+          <rect x="52" y="90" width="26" height="10" rx="5" fill="#DC2626"/>
+          <text x="150" y="96" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="54" font-weight="700" letter-spacing="-1" textLength="340" lengthAdjust="spacingAndGlyphs">
+            <tspan fill="#FFFFFF">Byte</tspan><tspan fill="#FFFFFF">Commerce</tspan>
+          </text>
+        </svg>
+        <span class="stage-label" style="color:rgba(255,255,255,.85)">B · putih di #DC2626</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ATURAN PENGGUNAAN ===== -->
+  <section class="section">
+    <p class="eyebrow">Aturan Penggunaan</p>
+    <h2>Clear Space, Ukuran, Larangan</h2>
+    <div class="grid grid-2" style="margin-bottom:1rem;">
+      <div class="card">
+        <h3>Clear space &amp; ukuran minimum</h3>
+        <ul class="spec-list">
+          <li>Area aman = 1 × tinggi huruf besar "B" pada wordmark, di semua sisi lockup.</li>
+          <li>Rute A: lebar minimum 120 px (navbar), 96 px (footer).</li>
+          <li>Rute B: lebar minimum 140 px; mark saja: tinggi 24 px minimum.</li>
+          <li>Rute C: badge 32 px minimum (ikon), lockup 140 px minimum.</li>
+          <li>Di bawah minimum, gunakan elemen yang lebih sederhana: Rute C badge menggantikan lockup penuh.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Latar yang diizinkan</h3>
+        <ul class="spec-list">
+          <li>Permukaan terang <span class="mono">#FFFFFF</span> dan latar <span class="mono">#FAFBFC</span>: varian full color.</li>
+          <li>Gelap <span class="mono">#0F172A</span> / surface gelap <span class="mono">#1E293B</span>: varian gelap.</li>
+          <li>Permukaan berwarna (banner <span class="mono">#DC2626</span>): monokrom putih.</li>
+          <li>Hindari foto atau pola sibuk; jika terpaksa, taruh di dalam kartu permukaan terlebih dahulu.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="grid grid-2">
+      <div class="do">
+        <strong>Lakukan</strong>
+        <ul style="margin:0.5rem 0 0 1.1rem; font-size:0.9rem;">
+          <li>Pertahankan kapitalisasi "ByteCommerce" dengan "B" dan "C" besar.</li>
+          <li>Jaga split warna: "Byte" tinta, "Commerce" aksen.</li>
+          <li>Gunakan satu logo per halaman; di navbar, tinggi konsisten 28–32 px.</li>
+          <li>Ganti ke varian sesuai permukaan (terang/gelap/banner).</li>
+        </ul>
+      </div>
+      <div class="dont">
+        <strong>Jangan</strong>
+        <ul style="margin:0.5rem 0 0 1.1rem; font-size:0.9rem;">
+          <li>Regangkan, miringkan, atau rotasi logo.</li>
+          <li>Recolor ke hue lain — khususnya indigo <span class="mono">#6366F1</span>/<span class="mono">#4F46E5</span>.</li>
+          <li>Tambahkan gradien, bayangan, glow, atau outline.</li>
+          <li>Letakkan di bawah ukuran minimum atau di latar kontras rendah.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== INTEGRASI PROTOTIPE ===== -->
+  <section class="section">
+    <p class="eyebrow">Integrasi di Prototipe</p>
+    <h2>Mengganti Teks Navbar</h2>
+    <p>
+      Prototipe saat ini memakai <span class="mono">&lt;a class="navbar-brand"&gt;Byte&lt;span&gt;Commerce&lt;/span&gt;&lt;/a&gt;</span>.
+      Ganti dengan file SVG (lebih ringkas) atau SVG inline (tanpa ketergantungan file):
+    </p>
+    <pre>&lt;!-- Opsi 1: file SVG dari assets/ --&gt;
+&lt;a href="home.html" class="navbar-brand" style="display:inline-flex;"&gt;
+  &lt;img src="../assets/logo-route-a-wordmark.svg"
+       alt="ByteCommerce"
+       style="height:28px; width:auto;"&gt;
+&lt;/a&gt;
+
+&lt;!-- Opsi 2: SVG inline (rute A), tanpa file eksternal --&gt;
+&lt;a href="home.html" class="navbar-brand"&gt;
+  &lt;svg viewBox="0 0 470 100" style="height:28px; width:auto;" role="img" aria-label="ByteCommerce"&gt;
+    &lt;text x="0" y="72" font-family="system-ui, 'Segoe UI', Roboto, sans-serif"
+          font-size="56" font-weight="700" letter-spacing="-1"
+          textLength="400" lengthAdjust="spacingAndGlyphs"&gt;
+      &lt;tspan fill="#0F172A"&gt;Byte&lt;/tspan&gt;&lt;tspan fill="#2563EB"&gt;Commerce&lt;/tspan&gt;
+    &lt;/text&gt;
+    &lt;rect x="414" y="47" width="14" height="14" rx="4" fill="#2563EB"/&gt;
+  &lt;/svg&gt;
+&lt;/a&gt;</pre>
+    <h3>Favicon &amp; catatan produksi</h3>
+    <ul class="spec-list">
+      <li>Favicon: <span class="mono">&lt;link rel="icon" type="image/svg+xml" href="../assets/logo-route-c-monogram.svg"&gt;</span> — badge Rute C terbaca pada 16–32 px.</li>
+      <li>Mode gelap di halaman: biarkan SVG pakai fill statis; ganti varian via CSS class atau dengan dua file SVG (terang/gelap) dan <span class="mono">prefers-color-scheme</span>.</li>
+      <li>Untuk produksi (Next.js), konversi wordmark ke path/outline (font jadi satu) agar rendering identik lintas OS, lalu ekspor sebagai komponen React.</li>
+      <li>Ganti font sistem dengan webfont geometris yang sama di <span class="mono">--font-display</span> sebelum rasterisasi.</li>
+    </ul>
+  </section>
+
+  <!-- ===== PUSTAKA PROMPT ===== -->
+  <section class="section">
+    <p class="eyebrow">Pustaka Prompt</p>
+    <h2>Regenerasi Raster (Opsional)</h2>
+    <p>
+      Ketika API key image dikonfigurasi (OpenAI, Fal, atau Codex CLI), prompt di tiap rute
+      bisa dikirim ulang melalui media dispatcher untuk versi raster:
+    </p>
+    <div class="card" style="padding:0.5rem; overflow-x:auto;">
+      <table>
+        <thead>
+          <tr><th>Rute</th><th>Model rekomendasi</th><th>Aspect</th><th>Catatan</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>A · Wordmark</td>
+            <td class="mono">gpt-image-2</td>
+            <td class="mono">1:1</td>
+            <td>Terbaik untuk teks; cek ejaan "Commerce" setelah render.</td>
+          </tr>
+          <tr>
+            <td>B · Simbol + Logotype</td>
+            <td class="mono">flux-pro-ultra</td>
+            <td class="mono">1:1</td>
+            <td>Kualitas tertinggi, 60–180 dtk, butuh <span class="mono">FAL_KEY</span>.</td>
+          </tr>
+          <tr>
+            <td>C · Monogram</td>
+            <td class="mono">codex-gpt-image-2</td>
+            <td class="mono">1:1</td>
+            <td>Butuh CLI Codex terpasang dan login; tanpa kunci API tambahan.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:0.75rem; font-size:0.9rem;" class="muted">
+      Saat ini belum ada kunci provider yang terkonfigurasi pada mesin ini
+      (OpenAI, Fal, dan Codex CLI tidak tersedia), sehingga konsep dikirim sebagai SVG vektor —
+      yang sebenarnya sudah siap pakai langsung di prototipe.
+    </p>
+  </section>
+
+  <!-- ===== DAFTAR FILE ===== -->
+  <section class="section">
+    <p class="eyebrow">Daftar File</p>
+    <h2>Aset yang Dihasilkan</h2>
+    <div class="card" style="padding:0.5rem;">
+      <table>
+        <thead><tr><th>File</th><th>Isi</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">assets/logo-route-a-wordmark.svg</td><td>Rute A · wordmark tipografis</td></tr>
+          <tr><td class="mono">assets/logo-route-b-symbol.svg</td><td>Rute B · simbol paket data + logotype</td></tr>
+          <tr><td class="mono">assets/logo-route-c-monogram.svg</td><td>Rute C · monogram lockup</td></tr>
+          <tr><td class="mono">brand-identity-directions.html</td><td>Dokumen ini — arah, palet, aturan, prompt</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== SCORECARD ===== -->
+  <section class="section">
+    <od-card type="verify-scorecard" subject="Arah identitas logo ByteCommerce" checks='[
+      {"id":"palette","label":"Semua hex berasal dari token DESlGN.md (tanpa hue baru)","pass":true},
+      {"id":"slop","label":"Tanpa gradien, tanpa bayangan, tanpa warna indigo, tanpa emoji","pass":true},
+      {"id":"original","label":"Tiga konsep geometris berbeda dan orisinal (wordmark / paket-data / monogram)","pass":true},
+      {"id":"usable","label":"SVG siap dipakai di navbar prototipe; snippet integrasi disediakan","pass":true},
+      {"id":"contrast","label":"Kontras AA+ untuk semua kombinasi warna yang diresepkan","pass":true},
+      {"id":"lang","label":"Konten pengguna berbahasa Indonesia; prompt image model berbahasa Inggris","pass":true}
+    ]'></od-card>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="container">
+    ByteCommerce · Arah Identitas Logo · Berlandaskan DESIGN.md — Professional Minimal, satu aksen biru, flat.
+  </div>
+</footer>
+
+</body>
+</html>
