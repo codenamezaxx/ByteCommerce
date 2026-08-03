@@ -1017,9 +1017,8 @@ tbody tr:hover { background: var(--table-hover); }
 
 /* ============================================
    Dark Theme
-   - Otomatis: @media (prefers-color-scheme: dark)
-   - Manual:   <html data-theme="dark"> menimpa preferensi OS
-   - Paksa terang: <html data-theme="light">
+   - Manual: <html data-theme="dark"> via user toggle
+   - Default: light (no OS auto-detection)
    ============================================ */
 
 :root[data-theme="dark"] {
@@ -1066,52 +1065,34 @@ tbody tr:hover { background: var(--table-hover); }
   --shadow-lg:      0 8px 24px rgba(0,0,0,.55);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-
-    --bg:             #0F172A;
-    --surface:        #1E293B;
-    --fg:             #F1F5F9;
-    --muted:          #94A3B8;
-    --border:         #334155;
-    --accent:         #60A5FA;
-    --accent-hover:   #3B82F6;
-    --on-accent:      #0F172A;
-    --danger:         #F87171;
-    --danger-hover:   #EF4444;
-    --on-danger:      #0F172A;
-    --success:        #34D399;
-    --warning:        #FBBF24;
-
-    --accent-soft:    rgba(59,130,246,.16);
-    --success-soft:   rgba(5,150,105,.16);
-    --warning-soft:   rgba(217,119,6,.16);
-    --neutral-soft:   rgba(148,163,184,.14);
-    --danger-soft:    rgba(220,38,38,.16);
-    --disabled-bg:    #334155;
-    --disabled-fg:    #64748B;
-    --navbar-bg:      rgba(15,23,42,.85);
-    --placeholder:    #64748B;
-    --ph-bg:          rgba(148,163,184,.1);
-    --ph-fg:          #64748B;
-    --toast-success-bg:     rgba(5,150,105,.16);
-    --toast-success-border: rgba(16,185,129,.4);
-    --toast-success-fg:     #6EE7B7;
-    --toast-error-bg:       rgba(220,38,38,.16);
-    --toast-error-border:   rgba(248,113,113,.4);
-    --toast-error-fg:       #FCA5A5;
-    --table-hover:    rgba(148,163,184,.06);
-    --overlay:        rgba(2,6,23,.6);
-    --ring-accent:    0 0 0 3px rgba(96,165,250,.25);
-    --ring-danger:    0 0 0 3px rgba(248,113,113,.25);
-
-    --shadow-sm:      0 1px 3px rgba(0,0,0,.4);
-    --shadow-md:      0 4px 12px rgba(0,0,0,.45);
-    --shadow-lg:      0 8px 24px rgba(0,0,0,.55);
-  }
+/* Theme toggle button */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+  transition: all var(--transition);
+  flex-shrink: 0;
 }
-
+.theme-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.theme-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-accent);
+}
+.theme-toggle svg {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.3s ease;
+}
 
 /* Navbar mobile */
 .navbar-hamburger {

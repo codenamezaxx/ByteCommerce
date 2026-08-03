@@ -3,15 +3,64 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { cartApi } from '@/lib/api';
-import { useEffect } from 'react';
+
+function SunIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="5"/>
+      <line x1="12" y1="1" x2="12" y2="3"/>
+      <line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/>
+      <line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  );
+}
+
+function useTheme() {
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  // Read from localStorage on mount (only runs on client)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('theme');
+      if (stored === 'dark') setTheme('dark');
+    } catch { /* SSR guard */ }
+  }, []);
+
+  // Keep <html> attribute + localStorage in sync with state.
+  // Side effects live outside the setState updater (which must stay pure).
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try { localStorage.setItem('theme', theme); } catch { /* ignore */ }
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+  }, []);
+
+  return { theme, toggleTheme };
+}
 
 export default function Navbar() {
   const { user, loading, logout } = useAuth();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     (async () => {
@@ -23,7 +72,7 @@ export default function Navbar() {
     })();
   }, []);
 
-  // Refresh cart count on route change
+  // Close mobile menu on route change
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
@@ -86,6 +135,16 @@ export default function Navbar() {
               </Link>
             )}
 
+            {/* Theme toggle */}
+            <button
+              className="theme-toggle"
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
+              title={theme === 'dark' ? 'Mode terang' : 'Mode gelap'}
+            >
+              {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+            </button>
+
             {loading ? null : user ? (
               <div style={{display:'flex', alignItems:'center', gap:'0.75rem'}}>
                 {user.role === 'admin' && (
@@ -121,6 +180,19 @@ export default function Navbar() {
           {!user && <Link href="/auth/signup" onClick={() => setMobileOpen(false)}>Daftar</Link>}
           {user && <Link href="/orders" onClick={() => setMobileOpen(false)}>Pesanan Saya</Link>}
           {user?.role === 'admin' && <Link href="/admin" onClick={() => setMobileOpen(false)}>Admin</Link>}
+          {/* Mobile theme toggle */}
+          <button
+            onClick={() => { toggleTheme(); }}
+            style={{
+              background:'none', border:'none', borderBottom:'1px solid var(--border)',
+              textAlign:'left', padding:'0.65rem 0', fontSize:'0.95rem', fontWeight:500,
+              color:'var(--fg)', width:'100%', cursor:'pointer',
+              display:'flex', alignItems:'center', gap:'0.5rem',
+            }}
+          >
+            {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+            {theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}
+          </button>
           {user && <button onClick={() => { logout(); setMobileOpen(false); }} style={{background:'none',border:'none',textAlign:'left',padding:'0.65rem 0',fontSize:'0.95rem',fontWeight:500,color:'var(--fg)',width:'100%',cursor:'pointer',borderBottom:'1px solid var(--border)'}}>Keluar</button>}
         </div>
       </nav>
