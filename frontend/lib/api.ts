@@ -1,0 +1,139 @@
+// ByteCommerce API Client
+// Attaches X-Guest-ID from localStorage, parses errors, throws with code
+
+export class ApiError extends Error {
+  code: string;
+  status: number;
+  errors?: string[];
+
+  constructor(message: string, status: number, code: string, errors?: string[]) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+    this.status = status;
+    this.errors = errors;
+  }
+}
+
+function getGuestId(): string {
+  if (typeof window === 'undefined') return '';
+  let guestId = localStorage.getItem('guest_id');
+  if (!guestId) {
+    guestId = crypto.randomUUID();
+    localStorage.setItem('guest_id', guestId);
+  }
+  return guestId;
+}
+
+interface RequestOptions extends RequestInit {
+  params?: Record<string, string | number | undefined>;
+}
+
+async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  const { params, ...fetchOptions } = options;
+
+  // Build URL with query params
+  let url = endpoint;
+  if (params) {
+    const searchParams = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== '') {
+        searchParams.set(key, String(value));
+      }
+    }
+    const qs = searchParams.toString();
+    if (qs) url += `?${qs}`;
+  }
+
+  // Attach headers
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(fetchOptions.headers as Record<string, string> || {}),
+  };
+
+  const guestId = getGuestId();
+  if (guestId) {
+    headers['X-Guest-ID'] = guestId;
+  }
+
+  const res = await fetch(url, {
+    ...fetchOptions,
+    headers,
+    credentials: 'include', // send httpOnly cookie
+  });
+
+  // Handle non-JSON responses
+  const contentType = res.headers.get('content-type');
+  let body: any;
+  if (contentType && contentType.includes('application/json')) {
+    body = await res.json();
+  } else {
+    body = await res.text();
+  }
+
+  if (!res.ok) {
+    const message = typeof body === 'object' && body?.message ? body.message : 'Terjadi kesalahan';
+    const code = typeof body === 'object' && body?.code ? body.code : 'UNKNOWN_ERROR';
+    const errors = typeof body === 'object' && body?.errors ? body.errors : undefined;
+    throw new ApiError(message, res.status, code, errors);
+  }
+
+  return body as T;
+}
+
+// Auth
+export const authApi = {
+  login: (email: string, password: string) =>
+    request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  signup: (name: string, email: string, password: string) =>
+    request('/api/auth/signup', { method: 'POST', body: JSON.stringify({ name, email, password }) }),
+  logout: () =>
+    request('/api/auth/logout', { method: 'POST' }),
+  me: () =>
+    request('/api/auth/me'),
+};
+
+// Products
+export const productsApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    request('/api/products', { params }),
+  get: (id: string | number) =>
+    request(`/api/products/${id}`),
+};
+
+// Cart
+export const cartApi = {
+  get: () => request('/api/cart'),
+  addItem: (product_id: number, quantity: number = 1) =>
+    request('/api/cart/items', { method: 'POST', body: JSON.stringify({ productId: product_id, quantity }) }),
+  updateItem: (id: number, quantity: number) =>
+    request(`/api/cart/items/${id}`, { method: 'PATCH', body: JSON.stringify({ quantity }) }),
+  removeItem: (id: number) =>
+    request(`/api/cart/items/${id}`, { method: 'DELETE' }),
+  merge: () =>
+    request('/api/cart/merge', { method: 'POST' }),
+};
+
+// Flash Sale
+export const flashsaleApi = {
+  active: () => request('/api/flashsale/active'),
+  checkout: (product_id: number, quantity: number = 1) =>
+    request('/api/flashsale/checkout', { method: 'POST', body: JSON.stringify({ productId: product_id, quantity }) }),
+};
+
+// Orders
+export const ordersApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    request('/api/orders', { params }),
+  get: (id: string | number) =>
+    request(`/api/orders/${id}`),
+};
+
+// Admin
+export const adminApi = {
+  dashboard: () => request('/api/admin/dashboard'),
+  flashsaleWarmup: () =>
+    request('/api/admin/flashsale/warmup', { method: 'POST' }),
+  flashsaleKillswitch: () =>
+    request('/api/admin/flashsale/killswitch', { method: 'POST' }),
+};

@@ -38,6 +38,8 @@ const routeModules = [
   { path: '/api/cart', router: require('./modules/cart/cart.routes') },
   { path: '/api/flashsale', router: flashsaleRoutes.router },
   { path: '/api/admin/flashsale', router: flashsaleRoutes.adminRouter },
+  { path: '/api/orders', router: require('./modules/orders/orders.routes') },
+  { path: '/api/admin', router: require('./modules/admin/admin.routes') },
 ];
 
 for (const routeModule of routeModules) {

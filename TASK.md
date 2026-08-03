@@ -2,7 +2,7 @@
 
 > **Project**: ByteCommerce — E-Commerce Platform (High-Concurrency Flash Sale)
 > **Tech Stack**: Express.js + PostgreSQL 16 Native + Redis 7 + Next.js 14 + Docker
-> **Target**: Q3 2026 | **Status**: 🟢 Planning
+> **Target**: Q3 2026 | **Status**: 🟡 In Development
 
 ---
 
@@ -436,19 +436,19 @@ NODE_ENV=development
 ## ═══════════════════════════════════════════
 
 ### [P7.1] Order Routes — `orders.routes.js`
-- [ ] `GET /api/orders` — authenticated, list riwayat order user
-- [ ] `GET /api/orders/:id` — authenticated, detail order + items
+- [x] `GET /api/orders` — authenticated, list riwayat order user
+- [x] `GET /api/orders/:id` — authenticated, detail order + items
 
 ### [P7.2] Order Controller — `orders.controller.js`
-- [ ] `list`: query params `page`, `limit`, `status` (filter)
-- [ ] `detail`: validasi param `id`, cek kepemilikan (user hanya bisa lihat order sendiri)
+- [x] `list`: query params `page`, `limit`, `status` (filter)
+- [x] `detail`: validasi param `id`, cek kepemilikan (user hanya bisa lihat order sendiri)
 
 ### [P7.3] Order Service — `orders.service.js`
-- [ ] `list(userId, filters)`:
+- [x] `list(userId, filters)`:
   - Query orders by user_id dengan pagination
   - Join order_items untuk total item count
   - Return `{ orders, total, page, totalPages }`
-- [ ] `detail(orderId, userId)`:
+- [x] `detail(orderId, userId)`:
   - Query order header
   - Query order items (JOIN products untuk nama produk)
   - Validasi: order harus milik user yang login (kecuali admin)
@@ -460,12 +460,12 @@ NODE_ENV=development
 ## ═══════════════════════════════════════════
 
 ### [P8.1] Admin Routes — hook ke module yang existing
-- [ ] Product CRUD (share dengan Phase 4 routes, tambah middleware `requireAdmin`)
-- [ ] Flash Sale warmup & killswitch (Phase 6)
-- [ ] `GET /api/admin/dashboard` — admin only, monitoring metrics
+- [x] Product CRUD (share dengan Phase 4 routes, tambah middleware `requireAdmin`)
+- [x] Flash Sale warmup & killswitch (Phase 6)
+- [x] `GET /api/admin/dashboard` — admin only, monitoring metrics
 
 ### [P8.2] Admin Controller & Service
-- [ ] `getDashboardMetrics()`:
+- [x] `getDashboardMetrics()`:
   - Total users count
   - Total products count
   - Total orders hari ini
@@ -480,31 +480,31 @@ NODE_ENV=development
 ## ═══════════════════════════════════════════
 
 ### [P9.1] Layout & Common Components
-- [ ] Root layout dengan navbar + footer
-- [ ] Navbar: logo, search bar, cart icon (dengan badge jumlah item), login/logout button
-- [ ] Guest ID management: generate + store di localStorage, kirim via header
-- [ ] API client utility (`lib/api.js`):
+- [x] Root layout dengan navbar + footer
+- [x] Navbar: logo, search bar, cart icon (dengan badge jumlah item), login/logout button
+- [x] Guest ID management: generate + store di localStorage, kirim via header
+- [x] API client utility (`lib/api.js`):
   - Base URL dari env `NEXT_PUBLIC_API_URL`
   - Interceptor untuk attach Guest-ID header
   - Standard error handling
-- [ ] Auth context/provider untuk manage user state
+- [x] Auth context/provider untuk manage user state
 
 ### [P9.2] Auth Pages
-- [ ] `/auth/login` — form login (email + password)
+- [x] `/auth/login` — form login (email + password)
   - On success: redirect ke halaman sebelumnya, trigger cart merge
   - Loading state + error handling
-- [ ] `/auth/signup` — form registrasi (name + email + password + confirm password)
+- [x] `/auth/signup` — form registrasi (name + email + password + confirm password)
   - Client-side validation
   - On success: auto-login + redirect
 
 ### [P9.3] Product Pages
-- [ ] `/` (home) — product catalog grid:
+- [x] `/` (home) — product catalog grid:
   - Featured flash sale banner/carousel
   - Regular products grid
   - Search bar + filter (by price range, flash sale only)
   - Pagination / infinite scroll
   - Flash sale badge + countdown timer
-- [ ] `/products/[id]` — product detail:
+- [x] `/products/[id]` — product detail:
   - Image gallery (placeholder untuk MVP)
   - Harga reguler vs flash sale price
   - Stok indikator
@@ -512,7 +512,7 @@ NODE_ENV=development
   - Jika flash sale: countdown + disable saat stok habis
 
 ### [P9.4] Cart Page
-- [ ] `/cart` — cart overview:
+- [x] `/cart` — cart overview:
   - List item dengan quantity controls (+/-)
   - Subtotal per item + total keseluruhan
   - Remove item button
@@ -520,28 +520,28 @@ NODE_ENV=development
   - If guest: prompt untuk login saat checkout flash sale
 
 ### [P9.5] Flash Sale Checkout Experience ⚡
-- [ ] Anti-double-submit: button disable + loading spinner on click
-- [ ] Real-time feedback: Success → redirect ke invoice / Error → tampilkan alert
-- [ ] Stock countdown: real-time update via polling atau SSE
-- [ ] Jika user guest saat checkout → modal "Login to continue"
+- [x] Anti-double-submit: button disable + loading spinner on click
+- [x] Real-time feedback: Success → redirect ke invoice / Error → tampilkan alert
+- [x] Stock countdown: real-time update via polling atau SSE
+- [x] Jika user guest saat checkout → modal "Login to continue"
 
 ### [P9.6] Order Pages
-- [ ] `/orders` — riwayat order:
+- [x] `/orders` — riwayat order:
   - List order dengan status badge (PAID, FAILED, CANCELLED)
   - Total amount + date
-- [ ] `/orders/[id]` — invoice detail:
+- [x] `/orders/[id]` — invoice detail:
   - Order info (ID, date, status)
   - List purchased items
   - Total amount
 
 ### [P9.7] Admin Pages
-- [ ] `/admin` — dashboard:
+- [x] `/admin` — dashboard:
   - Stat cards: total users, products, orders today
   - Recent orders table
-- [ ] `/admin/products` — product management:
+- [x] `/admin/products` — product management:
   - Table CRUD dengan modal form
   - Flash sale toggle + price setting
-- [ ] `/admin/flashsale` — flash sale management:
+- [x] `/admin/flashsale` — flash sale management:
   - Warmup cache button (with confirmation)
   - Kill-switch button (RED, with double confirmation)
   - Active flash sale status
@@ -652,9 +652,9 @@ NODE_ENV=development
 | P4: Product Module | 3 Task Groups | 🟢 Done |
 | P5: Cart Module | 3 Task Groups | 🟢 Done |
 | P6: Flash Sale Engine | 4 Task Groups | 🟢 Done |
-| P7: Order Module | 3 Task Groups | 🔴 Not Started |
-| P8: Admin Module | 2 Task Groups | 🔴 Not Started |
-| P9: Frontend App | 7 Task Groups | 🔴 Not Started |
+| P7: Order Module | 3 Task Groups | 🟢 Done |
+| P8: Admin Module | 2 Task Groups | 🟢 Done |
+| P9: Frontend App | 7 Task Groups | 🟢 Done |
 | P10: Docker & CI/CD | 3 Task Groups | 🔴 Not Started |
 | P11: Testing & QA | 4 Task Groups | 🔴 Not Started |
 | P12: Documentation | 3 Task Groups | 🔴 Not Started |
