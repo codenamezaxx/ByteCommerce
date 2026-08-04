@@ -7,7 +7,8 @@ const { ConflictError, NotFoundError } = require('../../utils/CustomError');
 const MAX_LIMIT = 100;
 
 const PRODUCT_COLUMNS =
-  'id, name, description, price, stock, is_flash_sale, flash_sale_price, created_at';
+  'id, name, description, category, price, stock, is_flash_sale, flash_sale_price, ' +
+  'flash_sale_stock, flash_sale_start, flash_sale_end, created_at';
 
 // pg mengembalikan DECIMAL/NUMERIC sebagai string — normalisasi ke Number untuk JSON.
 function mapProduct(row) {
@@ -16,11 +17,12 @@ function mapProduct(row) {
     ...row,
     price: Number(row.price),
     flash_sale_price: row.flash_sale_price !== null ? Number(row.flash_sale_price) : null,
+    flash_sale_stock: row.flash_sale_stock !== null ? Number(row.flash_sale_stock) : null,
   };
 }
 
 class ProductsService {
-  static async list({ page = 1, limit = 10, search = '', flashSale = null, minPrice = null, maxPrice = null } = {}) {
+  static async list({ page = 1, limit = 10, search = '', flashSale = null, minPrice = null, maxPrice = null, category = null } = {}) {
     const safeLimit = Math.min(limit, MAX_LIMIT);
     const offset = (page - 1) * safeLimit;
 
@@ -36,6 +38,11 @@ class ProductsService {
     if (flashSale !== null) {
       conditions.push(`is_flash_sale = $${idx}`);
       params.push(flashSale);
+      idx += 1;
+    }
+    if (category) {
+      conditions.push(`category = $${idx}`);
+      params.push(category);
       idx += 1;
     }
     if (minPrice !== null) {

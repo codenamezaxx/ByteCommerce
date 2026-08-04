@@ -42,6 +42,17 @@ function parsePriceFilter(value, field, errors) {
   return num;
 }
 
+function parseCategoryFilter(value, errors) {
+  if (value === undefined || value === '') return null;
+  const category = String(value).trim();
+  if (!category) return null;
+  if (category.length > 100) {
+    errors.push({ field: 'category', message: 'category must be at most 100 characters' });
+    return null;
+  }
+  return category;
+}
+
 function parseIdParam(value) {
   const num = Number(value);
   if (!Number.isInteger(num) || num <= 0) {
@@ -174,13 +185,14 @@ const productsController = {
     const flashSale = parseFlashSale(req.query.flash_sale, errors);
     const minPrice = parsePriceFilter(req.query.min_price, 'min_price', errors);
     const maxPrice = parsePriceFilter(req.query.max_price, 'max_price', errors);
+    const category = parseCategoryFilter(req.query.category, errors);
     const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
 
     if (errors.length > 0) {
       throw new ValidationError('Invalid query parameters', errors);
     }
 
-    const result = await productsService.list({ page, limit, search, flashSale, minPrice, maxPrice });
+    const result = await productsService.list({ page, limit, search, flashSale, minPrice, maxPrice, category });
     res.success(result, 'Products fetched successfully');
   },
 

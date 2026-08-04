@@ -36,6 +36,8 @@ async function signupAndLogin(name, email, password) {
 }
 
 async function createFlashProduct(name, price, stock, flashPrice) {
+  // Buat produk reguler dulu, lalu tetapkan sebagai flash sale lewat endpoint
+  // admin baru (mengatur harga flash + kuota flash_sale_stock + warmup Redis).
   const res = await request(app)
     .post('/api/products')
     .set('Authorization', `Bearer ${adminToken}`)
@@ -44,11 +46,16 @@ async function createFlashProduct(name, price, stock, flashPrice) {
       description: 'flash sale test product',
       price,
       stock,
-      is_flash_sale: true,
-      flash_sale_price: flashPrice,
     });
   expect(res.status).toBe(201);
-  return res.body.data;
+  const product = res.body.data;
+
+  const setRes = await request(app)
+    .post('/api/admin/flashsale/items')
+    .set('Authorization', `Bearer ${adminToken}`)
+    .send({ productId: product.id, flashSalePrice: flashPrice, flashSaleStock: stock });
+  expect(setRes.status).toBe(201);
+  return setRes.body.data;
 }
 
 beforeAll(async () => {
@@ -67,8 +74,9 @@ beforeAll(async () => {
     .post('/api/admin/flashsale/warmup')
     .set('Authorization', `Bearer ${adminToken}`)
     .expect(200);
-  // B dibuat SETELAH warmup → tidak punya key Redis → menguji graceful fallback (miss).
+  // B dibuat SETELAH warmup → hapus key Redis-nya → menguji graceful fallback (miss).
   productB = await createFlashProduct(`${TEST_PRODUCT_NAME_PREFIX} B ${ts}`, 200000, 2, 100000);
+  await redis.del(`${STOCK_KEY_PREFIX}${productB.id}`);
 });
 
 afterAll(async () => {
@@ -145,9 +153,11 @@ describe('POST /api/flashsale/checkout', () => {
 
     createdOrderIds.push(res.body.data.orderId);
 
-    // Stok di DB benar-benar berkurang (bukan kalkulasi client).
-    const stockResult = await db.query('SELECT stock FROM products WHERE id = $1', [productA.id]);
-    expect(Number(stockResult.rows[0].stock)).toBe(3); // 5 - 2
+    // Kuota flash sale di DB benar-benar berkurang (bukan kalkulasi client).
+    // SP baru memotong flash_sale_stock; stok asli TIDAK disentuh.
+    const stockResult = await db.query('SELECT stock, flash_sale_stock FROM products WHERE id = $1', [productA.id]);
+    expect(Number(stockResult.rows[0].stock)).toBe(5); // stok asli tetap
+    expect(Number(stockResult.rows[0].flash_sale_stock)).toBe(3); // 5 - 2
 
     // Kuota Redis ikut tersinkron.
     const cached = await redis.get(`${STOCK_KEY_PREFIX}${productA.id}`);
@@ -155,7 +165,7 @@ describe('POST /api/flashsale/checkout', () => {
   });
 
   it('falls back to DB when Redis key is missing (no warmup)', async () => {
-    // productB tidak pernah di-warmup → key Redis null → TIER 1 skip → DB mengeksekusi.
+    // productB tidak pernah di-warmup (key Redis dihapus) → TIER 1 skip → DB mengeksekusi.
     const res = await request(app)
       .post('/api/flashsale/checkout')
       .set('Authorization', `Bearer ${userToken}`)
@@ -165,12 +175,13 @@ describe('POST /api/flashsale/checkout', () => {
     expect(res.body.data.totalAmount).toBe(100000 * 2);
     createdOrderIds.push(res.body.data.orderId);
 
-    const stockResult = await db.query('SELECT stock FROM products WHERE id = $1', [productB.id]);
-    expect(Number(stockResult.rows[0].stock)).toBe(0);
+    const stockResult = await db.query('SELECT stock, flash_sale_stock FROM products WHERE id = $1', [productB.id]);
+    expect(Number(stockResult.rows[0].stock)).toBe(2); // stok asli tetap
+    expect(Number(stockResult.rows[0].flash_sale_stock)).toBe(0); // kuota flash habis (2 - 2)
   });
 
   it('rejects oversell (DB) and syncs Redis to 0', async () => {
-    // Stok A sekarang 3; minta 99 → Stored Procedure menolak OUT_OF_STOCK.
+    // Kuota flash A sekarang 3; minta 99 → Stored Procedure menolak OUT_OF_STOCK.
     const res = await request(app)
       .post('/api/flashsale/checkout')
       .set('Authorization', `Bearer ${userToken}`)
@@ -184,9 +195,9 @@ describe('POST /api/flashsale/checkout', () => {
     const cached = await redis.get(`${STOCK_KEY_PREFIX}${productA.id}`);
     expect(Number(cached)).toBe(0);
 
-    // Stok DB tidak berubah (rollback transaksi di Stored Procedure).
-    const stockResult = await db.query('SELECT stock FROM products WHERE id = $1', [productA.id]);
-    expect(Number(stockResult.rows[0].stock)).toBe(3);
+    // Kuota flash DB tidak berubah (rollback transaksi di Stored Procedure).
+    const stockResult = await db.query('SELECT flash_sale_stock FROM products WHERE id = $1', [productA.id]);
+    expect(Number(stockResult.rows[0].flash_sale_stock)).toBe(3);
   });
 
   it('rejects a non-flash-sale product', async () => {
@@ -257,9 +268,9 @@ describe('Admin flash sale control', () => {
     expect(checkoutRes.status).toBe(400);
     expect(checkoutRes.body.code).toBe('OUT_OF_STOCK_REDIS');
 
-    // Stok DB tidak berubah (masih 3).
-    const stockResult = await db.query('SELECT stock FROM products WHERE id = $1', [productA.id]);
-    expect(Number(stockResult.rows[0].stock)).toBe(3);
+    // Kuota flash DB tidak berubah (masih 3).
+    const stockResult = await db.query('SELECT flash_sale_stock FROM products WHERE id = $1', [productA.id]);
+    expect(Number(stockResult.rows[0].flash_sale_stock)).toBe(3);
   });
 
   it('warmup re-enables checkout after killswitch', async () => {
@@ -276,5 +287,150 @@ describe('Admin flash sale control', () => {
     expect(res.status).toBe(201);
     expect(res.body.data.totalAmount).toBe(75000);
     createdOrderIds.push(res.body.data.orderId);
+  });
+});
+
+describe('Admin flash sale items (set / remove)', () => {
+  it('requires authentication -> 401', async () => {
+    const res = await request(app)
+      .post('/api/admin/flashsale/items')
+      .send({ productId: 1, flashSalePrice: 100, flashSaleStock: 5 });
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('AUTHENTICATION_FAILED');
+  });
+
+  it('rejects non-admin user -> 403', async () => {
+    const res = await request(app)
+      .post('/api/admin/flashsale/items')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ productId: 1, flashSalePrice: 100, flashSaleStock: 5 });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('FORBIDDEN');
+  });
+
+  it('sets a regular product as flash sale -> 201 with full product data + Redis warmup', async () => {
+    const ts = Date.now();
+    const created = await request(app)
+      .post('/api/products')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: `${TEST_PRODUCT_NAME_PREFIX} SetItem ${ts}`,
+        description: 'admin set item',
+        price: 500000,
+        stock: 10,
+      });
+    expect(created.status).toBe(201);
+    const productId = created.body.data.id;
+
+    const res = await request(app)
+      .post('/api/admin/flashsale/items')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        productId,
+        flashSalePrice: 250000,
+        flashSaleStock: 10,
+        startAt: '2026-08-04T00:00:00.000Z',
+        endAt: '2026-08-05T00:00:00.000Z',
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.id).toBe(productId);
+    expect(res.body.data.is_flash_sale).toBe(true);
+    expect(res.body.data.flash_sale_price).toBe(250000);
+    expect(res.body.data.flash_sale_stock).toBe(10);
+    expect(res.body.data.flash_sale_start).toBe('2026-08-04T00:00:00.000Z');
+    expect(res.body.data.flash_sale_end).toBe('2026-08-05T00:00:00.000Z');
+
+    // Kuota Redis di-warmup untuk produk tersebut.
+    const cached = await redis.get(`${STOCK_KEY_PREFIX}${productId}`);
+    expect(Number(cached)).toBe(10);
+  });
+
+  it('rejects flashSalePrice >= original price -> 422 INVALID_FLASH_PRICE', async () => {
+    const ts = Date.now();
+    const created = await request(app)
+      .post('/api/products')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: `${TEST_PRODUCT_NAME_PREFIX} BadPrice ${ts}`, price: 100000, stock: 5 });
+    expect(created.status).toBe(201);
+
+    const res = await request(app)
+      .post('/api/admin/flashsale/items')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ productId: created.body.data.id, flashSalePrice: 100000, flashSaleStock: 5 });
+
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe('INVALID_FLASH_PRICE');
+    expect(res.body.success).toBe(false);
+  });
+
+  it('rejects negative flashSaleStock -> 422 VALIDATION_ERROR', async () => {
+    const ts = Date.now();
+    const created = await request(app)
+      .post('/api/products')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: `${TEST_PRODUCT_NAME_PREFIX} BadStock ${ts}`, price: 100000, stock: 5 });
+    expect(created.status).toBe(201);
+
+    const res = await request(app)
+      .post('/api/admin/flashsale/items')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ productId: created.body.data.id, flashSalePrice: 50000, flashSaleStock: -1 });
+
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(res.body.errors).toContainEqual(expect.objectContaining({ field: 'flashSaleStock' }));
+  });
+
+  it('returns 404 for nonexistent product', async () => {
+    const res = await request(app)
+      .post('/api/admin/flashsale/items')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ productId: 999999, flashSalePrice: 100, flashSaleStock: 5 });
+
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('PRODUCT_NOT_FOUND');
+  });
+
+  it('removes a flash sale item -> 200, is_flash_sale FALSE & Redis key deleted', async () => {
+    const ts = Date.now();
+    const created = await request(app)
+      .post('/api/products')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: `${TEST_PRODUCT_NAME_PREFIX} RemoveItem ${ts}`, price: 300000, stock: 8 });
+    expect(created.status).toBe(201);
+    const productId = created.body.data.id;
+
+    const setRes = await request(app)
+      .post('/api/admin/flashsale/items')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ productId, flashSalePrice: 150000, flashSaleStock: 8 });
+    expect(setRes.status).toBe(201);
+
+    const res = await request(app)
+      .delete(`/api/admin/flashsale/items/${productId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.id).toBe(productId);
+    expect(res.body.data.is_flash_sale).toBe(false);
+    expect(res.body.data.flash_sale_price).toBe(null);
+    expect(res.body.data.flash_sale_stock).toBe(null);
+
+    const cached = await redis.get(`${STOCK_KEY_PREFIX}${productId}`);
+    expect(cached).toBe(null);
+  });
+
+  it('delete nonexistent product -> 404', async () => {
+    const res = await request(app)
+      .delete('/api/admin/flashsale/items/999999')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('PRODUCT_NOT_FOUND');
   });
 });

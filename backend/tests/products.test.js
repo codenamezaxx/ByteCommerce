@@ -84,6 +84,25 @@ describe('GET /api/products (list)', () => {
     }
   });
 
+  it('filters by category -> only products of that category', async () => {
+    const res = await request(app).get('/api/products?category=Elektronik');
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.total).toBeGreaterThan(0);
+    for (const p of res.body.data.products) {
+      expect(p.category).toBe('Elektronik');
+    }
+  });
+
+  it('rejects category longer than 100 chars -> 400 VALIDATION_ERROR', async () => {
+    const res = await request(app).get(`/api/products?category=${'x'.repeat(101)}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(res.body.errors).toContainEqual(expect.objectContaining({ field: 'category' }));
+  });
+
   it('filters min_price (regular price)', async () => {
     const res = await request(app).get('/api/products?min_price=1000000');
 

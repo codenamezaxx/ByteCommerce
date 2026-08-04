@@ -39,10 +39,15 @@ CREATE TABLE products (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
+    category VARCHAR(100) NOT NULL DEFAULT 'Lainnya',
     price DECIMAL(12, 2) NOT NULL CHECK (price >= 0),
     stock INT NOT NULL CHECK (stock >= 0),
     is_flash_sale BOOLEAN DEFAULT FALSE,
     flash_sale_price DECIMAL(12, 2),
+    -- Kuota khusus flash sale (tidak menyentuh kolom stock) + jendela waktu event.
+    flash_sale_stock INT,
+    flash_sale_start TIMESTAMPTZ,
+    flash_sale_end TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -94,6 +99,7 @@ CREATE TABLE order_items (
 -- Optimization Indexes
 -- =============================================================================
 CREATE INDEX idx_products_flash_sale ON products(is_flash_sale) WHERE is_flash_sale = TRUE;
+CREATE INDEX idx_products_category ON products(category);
 CREATE INDEX idx_orders_user ON orders(user_id);
 CREATE INDEX idx_carts_guest ON carts(guest_id);
 CREATE INDEX idx_carts_user ON carts(user_id);
@@ -103,7 +109,8 @@ CREATE INDEX idx_carts_user ON carts(user_id);
 -- Engine pembelian flash sale yang aman terhadap race condition (zero-oversell):
 --   * Row-Level Locking (SELECT ... FOR UPDATE) pada baris produk.
 --   * Validasi keberadaan produk, status flash sale, harga flash, dan stok.
---   * Pemotongan stok atomik di database (bukan kalkulasi di client).
+--   * Pemotongan stok ATOMIK di database pada flash_sale_stock (alokasi khusus
+--     flash sale; kolom stock asli TIDAK disentuh) — bukan kalkulasi di client.
 --   * Pembuatan order header + order items dalam satu transaksi implisit.
 -- Return: id order yang baru dibuat.
 -- =============================================================================
@@ -114,13 +121,14 @@ CREATE OR REPLACE FUNCTION buy_flash_sale_item(
 ) RETURNS INT AS $$
 DECLARE
     v_stock INT;
+    v_flash_stock INT;
     v_price DECIMAL(12, 2);
     v_flash_price DECIMAL(12, 2);
     v_is_flash BOOLEAN;
     v_order_id INT;
 BEGIN
-    SELECT stock, price, flash_sale_price, is_flash_sale
-    INTO v_stock, v_price, v_flash_price, v_is_flash
+    SELECT stock, flash_sale_stock, price, flash_sale_price, is_flash_sale
+    INTO v_stock, v_flash_stock, v_price, v_flash_price, v_is_flash
     FROM products
     WHERE id = p_product_id
     FOR UPDATE;
@@ -137,12 +145,14 @@ BEGIN
         RAISE EXCEPTION 'FLASH_PRICE_NOT_SET';
     END IF;
 
-    IF v_stock < p_quantity THEN
+    -- Stok flash sale habis / belum dialokasikan → OUT_OF_STOCK.
+    -- (p_quantity >= 1 selalu terjamin oleh validasi controller.)
+    IF v_flash_stock IS NULL OR v_flash_stock < p_quantity THEN
         RAISE EXCEPTION 'OUT_OF_STOCK';
     END IF;
 
     UPDATE products
-    SET stock = stock - p_quantity
+    SET flash_sale_stock = flash_sale_stock - p_quantity
     WHERE id = p_product_id;
 
     INSERT INTO orders (user_id, total_amount, status)

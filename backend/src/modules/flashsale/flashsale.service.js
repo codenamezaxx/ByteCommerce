@@ -12,13 +12,26 @@ const { AppError, ConflictError, NotFoundError } = require('../../utils/CustomEr
 
 const STOCK_KEY_PREFIX = 'flash_sale:stock:';
 
+// Normalisasi baris produk untuk respons admin set/remove flash sale item.
+// pg mengembalikan DECIMAL sebagai string — konversi ke Number agar JSON rapi.
+function mapFlashProduct(row) {
+  if (!row) return row;
+  return {
+    ...row,
+    price: Number(row.price),
+    flash_sale_price: row.flash_sale_price !== null ? Number(row.flash_sale_price) : null,
+    flash_sale_stock: row.flash_sale_stock !== null ? Number(row.flash_sale_stock) : null,
+  };
+}
+
 class FlashSaleService {
   // Daftar produk flash sale aktif (harga flash terpasang).
   // remaining_stock diambil dari Redis bila tersedia (kuota tersisa); bila Redis
   // miss/down, fallback ke stok PostgreSQL (graceful).
   static async getActiveFlashSale() {
     const result = await db.query(
-      `SELECT id, name, description, price, flash_sale_price, stock
+      `SELECT id, name, description, category, price, flash_sale_price, stock,
+              flash_sale_stock, flash_sale_start, flash_sale_end
        FROM products
        WHERE is_flash_sale = TRUE AND flash_sale_price IS NOT NULL
        ORDER BY id ASC`
@@ -40,9 +53,13 @@ class FlashSaleService {
         id: p.id,
         name: p.name,
         description: p.description,
+        category: p.category,
         price: Number(p.price),
         flash_sale_price: flashPrice,
         stock: Number(p.stock),
+        flash_sale_stock: p.flash_sale_stock !== null ? Number(p.flash_sale_stock) : null,
+        flash_sale_start: p.flash_sale_start,
+        flash_sale_end: p.flash_sale_end,
         remaining_stock: remaining,
         discount_percent: Math.round((1 - flashPrice / Number(p.price)) * 100),
       };
@@ -118,9 +135,12 @@ class FlashSaleService {
   }
 
   // Admin: muat stok flash sale dari PostgreSQL ke Redis (kuota awal).
+  // Sumber stok = flash_sale_stock (alokasi khusus flash); bila NULL (produk
+  // legacy flash tanpa kuota terpisah) fallback ke kolom stock.
   static async warmupFlashSaleStock() {
     const result = await db.query(
-      `SELECT id, stock FROM products
+      `SELECT id, COALESCE(flash_sale_stock, stock) AS warm_stock
+       FROM products
        WHERE is_flash_sale = TRUE AND flash_sale_price IS NOT NULL
        ORDER BY id ASC`
     );
@@ -132,7 +152,7 @@ class FlashSaleService {
 
     const pipeline = redis.pipeline();
     for (const p of products) {
-      pipeline.set(`${STOCK_KEY_PREFIX}${p.id}`, p.stock);
+      pipeline.set(`${STOCK_KEY_PREFIX}${p.id}`, p.warm_stock);
     }
     const execResults = await pipeline.exec();
     const failedCount = execResults.filter(([err]) => err).length;
@@ -142,8 +162,77 @@ class FlashSaleService {
 
     return {
       warmed: products.length,
-      products: products.map((p) => ({ id: p.id, stock: p.stock })),
+      products: products.map((p) => ({ id: p.id, stock: p.warm_stock })),
     };
+  }
+
+  // Admin: jadikan sebuah produk sebagai item flash sale (harga + kuota khusus).
+  // Kuota Redis ikut di-warmup agar TIER 1 pre-check langsung berfungsi.
+  static async setFlashSaleItem({ productId, flashSalePrice, flashSaleStock, startAt = null, endAt = null }) {
+    // Verifikasi keberadaan produk sekaligus ambil harga asli untuk rule
+    // flashSalePrice harus LEBIH KECIL dari harga asli.
+    const productResult = await db.query(
+      'SELECT id, price FROM products WHERE id = $1',
+      [productId]
+    );
+    const existing = productResult.rows[0];
+    if (!existing) {
+      throw new NotFoundError('Product not found', [], 'PRODUCT_NOT_FOUND');
+    }
+    if (flashSalePrice >= Number(existing.price)) {
+      throw new AppError(
+        'Flash sale price must be lower than the original product price',
+        422,
+        'INVALID_FLASH_PRICE',
+        [{ field: 'flashSalePrice', message: 'flashSalePrice must be lower than the product price' }]
+      );
+    }
+
+    const result = await db.query(
+      `UPDATE products
+       SET is_flash_sale = TRUE,
+           flash_sale_price = $1,
+           flash_sale_stock = $2,
+           flash_sale_start = $3,
+           flash_sale_end = $4
+       WHERE id = $5
+       RETURNING id, name, description, category, price, stock, is_flash_sale,
+                 flash_sale_price, flash_sale_stock, flash_sale_start, flash_sale_end, created_at`,
+      [flashSalePrice, flashSaleStock, startAt, endAt, productId]
+    );
+    const updated = mapFlashProduct(result.rows[0]);
+
+    // Warmup cache kuota Redis untuk produk ini (graceful: gagal tidak fatal).
+    await FlashSaleService._safeRedisSet(`${STOCK_KEY_PREFIX}${productId}`, flashSaleStock);
+
+    return updated;
+  }
+
+  // Admin: hapus sebuah produk dari program flash sale & bersihkan cache Redis.
+  static async removeFlashSaleItem(productId) {
+    const result = await db.query(
+      `UPDATE products
+       SET is_flash_sale = FALSE,
+           flash_sale_price = NULL,
+           flash_sale_stock = NULL,
+           flash_sale_start = NULL,
+           flash_sale_end = NULL
+       WHERE id = $1
+       RETURNING id, name, description, category, price, stock, is_flash_sale,
+                 flash_sale_price, flash_sale_stock, flash_sale_start, flash_sale_end, created_at`,
+      [productId]
+    );
+    if (result.rowCount === 0) {
+      throw new NotFoundError('Product not found', [], 'PRODUCT_NOT_FOUND');
+    }
+
+    try {
+      await redis.del(`${STOCK_KEY_PREFIX}${productId}`);
+    } catch (err) {
+      console.warn(`[flashsale] removeFlashSaleItem: Redis DEL failed: ${err.message}`);
+    }
+
+    return mapFlashProduct(result.rows[0]);
   }
 
   // Admin: matikan event flash sale secara mendadak.
