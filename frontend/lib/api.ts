@@ -119,6 +119,13 @@ export const flashsaleApi = {
   active: () => request('/api/flashsale/active'),
   checkout: (product_id: number, quantity: number = 1) =>
     request('/api/flashsale/checkout', { method: 'POST', body: JSON.stringify({ productId: product_id, quantity }) }),
+  setItem: (productId: number, flashSalePrice: number, flashSaleStock: number) =>
+    request('/api/admin/flashsale/items', {
+      method: 'POST',
+      body: JSON.stringify({ productId, flashSalePrice, flashSaleStock }),
+    }),
+  removeItem: (productId: number) =>
+    request(`/api/admin/flashsale/items/${productId}`, { method: 'DELETE' }),
 };
 
 // Orders

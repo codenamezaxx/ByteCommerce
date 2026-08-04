@@ -811,6 +811,11 @@ tbody tr:hover { background: var(--table-hover); }
   transform: translateY(-2px);
 }
 
+.category-card-active {
+  border-color: var(--accent);
+  box-shadow: var(--ring-accent);
+}
+
 .category-card-icon {
   margin-bottom: 0.5rem;
   display: flex;

@@ -16,16 +16,18 @@ interface Product {
   price: number;
   flash_price?: number;
   stock: number;
+  category?: string;
   flash_sale?: boolean;
-  flash_sale_price?: number;
-  flash_sale_stock?: number;
-  flash_sale_start?: string;
-  flash_sale_end?: string;
+  is_flash_sale?: boolean;
+  flash_sale_price?: number | null;
+  flash_sale_stock?: number | null;
+  flash_sale_start?: string | null;
+  flash_sale_end?: string | null;
   description?: string;
 }
 
 /* ------------------------------------------------------------------ */
-/*  Category card data                                                 */
+/*  Category card data (icons from prototype)                          */
 /* ------------------------------------------------------------------ */
 const CATEGORIES = [
   {
@@ -72,6 +74,14 @@ const CATEGORIES = [
 ];
 
 /* ------------------------------------------------------------------ */
+/*  Helper: discount badge                                             */
+/* ------------------------------------------------------------------ */
+function discountPercent(original: number, discounted: number): number {
+  if (!original || original <= 0 || !discounted || discounted >= original) return 0;
+  return Math.round((1 - discounted / original) * 100);
+}
+
+/* ------------------------------------------------------------------ */
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
 export default function HomePage() {
@@ -79,19 +89,21 @@ export default function HomePage() {
   const [flashProducts, setFlashProducts] = useState<Product[]>([]);
   const [flashSaleEnd, setFlashSaleEnd] = useState<Date | null>(null);
 
+  /* ---- category counts ---- */
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+
   /* ---- regular products (infinite scroll) ---- */
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const loadingRef = useRef(false);   // guard: prevent duplicate requests
-
-  /* ---- sentinel ref for infinite scroll ---- */
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const loadingRef = useRef(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   /* ================================================================
-     1. Flash sale
+     1. Flash sale + category counts (run once)
      ================================================================ */
   useEffect(() => {
     (async () => {
@@ -109,17 +121,38 @@ export default function HomePage() {
         }
       } catch { /* no flash sale active */ }
     })();
+
+    // Fetch all products once to compute category counts
+    (async () => {
+      try {
+        const res: any = await productsApi.list({ limit: 100 });
+        const data = res?.data || res;
+        const allProducts: Product[] = data?.products || data || [];
+        const counts: Record<string, number> = {};
+        for (const p of allProducts) {
+          const cat = p.category || 'Lainnya';
+          counts[cat] = (counts[cat] || 0) + 1;
+        }
+        setCategoryCounts(counts);
+      } catch { /* ignore */ }
+    })();
   }, []);
 
   /* ================================================================
-     2. Regular products – fetch helper
+     2. Regular products – fetch helper (supports category filter)
      ================================================================ */
-  const fetchProducts = useCallback(async (targetPage: number, query: string, append: boolean) => {
-    if (loadingRef.current) return;       // guard: already fetching
+  const fetchProducts = useCallback(async (targetPage: number, query: string, category: string | null, append: boolean) => {
+    if (loadingRef.current) return;
     loadingRef.current = true;
     setLoading(true);
     try {
-      const res: any = await productsApi.list({ page: targetPage, limit: 8, search: query || undefined });
+      const params: Record<string, string | number | undefined> = {
+        page: targetPage,
+        limit: 8,
+        search: query || undefined,
+        category: category || undefined,
+      };
+      const res: any = await productsApi.list(params);
       const data = res?.data || res;
       const list: Product[] = data?.products || data || [];
       const apiPages: number = data?.totalPages ?? 1;
@@ -137,9 +170,9 @@ export default function HomePage() {
 
   /* Initial load + page change */
   useEffect(() => {
-    fetchProducts(page, search, page > 1);
+    fetchProducts(page, search, activeCategory, page > 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [page, activeCategory]);
 
   /* ================================================================
      3. Infinite scroll – IntersectionObserver
@@ -159,7 +192,7 @@ export default function HomePage() {
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [hasMore, products.length]); // re-attach when list grows / hasMore changes
+  }, [hasMore, products.length]);
 
   /* ================================================================
      4. Search handler
@@ -169,15 +202,38 @@ export default function HomePage() {
     setPage(1);
     setProducts([]);
     setHasMore(true);
-    // fetchProducts will fire via the page-change effect
-    // but page is already 1 so we force a fresh fetch:
     loadingRef.current = false;
-    fetchProducts(1, search, false);
+    fetchProducts(1, search, activeCategory, false);
   };
 
   /* ================================================================
-     5. Scroll-to handler for category cards
+     5. Category filter handler
      ================================================================ */
+  const handleCategoryClick = (catLabel: string) => {
+    // Toggle: if already active, deactivate
+    const newCat = activeCategory === catLabel ? null : catLabel;
+    setActiveCategory(newCat);
+    setSearch('');
+    setPage(1);
+    setProducts([]);
+    setHasMore(true);
+    loadingRef.current = false;
+    fetchProducts(1, '', newCat, false);
+    // Scroll to products
+    setTimeout(() => {
+      document.getElementById('produk')?.scrollIntoView({ behavior: 'smooth' });
+    }, 50);
+  };
+
+  const clearCategory = () => {
+    setActiveCategory(null);
+    setPage(1);
+    setProducts([]);
+    setHasMore(true);
+    loadingRef.current = false;
+    fetchProducts(1, search, null, false);
+  };
+
   const scrollToProducts = (e: React.MouseEvent) => {
     e.preventDefault();
     document.getElementById('produk')?.scrollIntoView({ behavior: 'smooth' });
@@ -231,18 +287,24 @@ export default function HomePage() {
           <h2>Jelajahi Kategori</h2>
 
           <div className="category-grid">
-            {CATEGORIES.map(cat => (
-              <a
-                key={cat.label}
-                href="#produk"
-                className="card category-card"
-                onClick={scrollToProducts}
-              >
-                <div className="category-card-icon">{cat.icon}</div>
-                <h4>{cat.label}</h4>
-                <p className="text-muted category-card-count">Semua Produk</p>
-              </a>
-            ))}
+            {CATEGORIES.map(cat => {
+              const count = categoryCounts[cat.label] || 0;
+              const isActive = activeCategory === cat.label;
+              return (
+                <a
+                  key={cat.label}
+                  href="#produk"
+                  className={`card category-card${isActive ? ' category-card-active' : ''}`}
+                  onClick={(e) => { e.preventDefault(); handleCategoryClick(cat.label); }}
+                >
+                  <div className="category-card-icon">{cat.icon}</div>
+                  <h4>{cat.label}</h4>
+                  <p className="text-muted category-card-count">
+                    {count > 0 ? `${count} produk` : 'Semua'}
+                  </p>
+                </a>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -258,17 +320,32 @@ export default function HomePage() {
             </div>
             <div className="product-grid">
               {flashProducts.map((p: any) => {
-                const flashPrice = p.flash_price || p.flash_sale_price || p.price;
-                const originalPrice = p.price || p.original_price;
+                const flashPrice = p.flash_sale_price || p.flash_price || p.price;
+                const originalPrice = p.price;
                 const flashStock = p.flash_sale_stock ?? p.flash_stock ?? p.stock;
-                const maxStock = p.flash_sale_max_stock ?? p.flash_max_stock ?? 50;
+                const maxStock = p.flash_sale_stock != null
+                  ? Math.max(p.flash_sale_stock, p.stock || 0)
+                  : (p.flash_sale_max_stock ?? p.flash_max_stock ?? 50);
                 const stockPct = maxStock > 0 ? (flashStock / maxStock * 100) : 0;
+                const pctOff = discountPercent(originalPrice, flashPrice);
                 return (
                   <Link key={p.id} href={`/products/${p.id}`} className="product-card">
                     <div className="ph-img">Gambar Produk</div>
                     <div className="product-card-body">
-                      <span className="badge badge-danger" style={{ marginBottom: '0.5rem' }}>FLASH SALE</span>
+                      <div style={{display:'flex', alignItems:'center', gap:'0.35rem', marginBottom:'0.5rem', flexWrap:'wrap'}}>
+                        <span className="badge badge-danger">FLASH SALE</span>
+                        {pctOff > 0 && (
+                          <span className="badge badge-danger" style={{fontSize:'0.7rem', padding:'0.12rem 0.45rem'}}>
+                            -{pctOff}%
+                          </span>
+                        )}
+                      </div>
                       <h3>{p.name}</h3>
+                      {p.category && (
+                        <span className="text-muted" style={{fontSize:'0.78rem', display:'block', marginBottom:'0.35rem'}}>
+                          {p.category}
+                        </span>
+                      )}
                       <div className="product-meta">
                         <div>
                           <span className="product-price mono" style={{ color: 'var(--danger)' }}>
@@ -279,7 +356,7 @@ export default function HomePage() {
                           )}
                         </div>
                       </div>
-                      {flashStock !== undefined && maxStock > 0 && (
+                      {flashStock != null && maxStock > 0 && (
                         <>
                           <div className="stock-bar" style={{ marginTop: '0.75rem' }}>
                             <div
@@ -300,7 +377,7 @@ export default function HomePage() {
       )}
 
       {/* ============================================================
-          PRODUK REKOMENDASI – infinite scroll
+          PRODUK REKOMENDASI – infinite scroll + category filter
           ============================================================ */}
       <section
         className="page"
@@ -311,7 +388,7 @@ export default function HomePage() {
           <p className="eyebrow">PRODUK PILIHAN</p>
           <h2 style={{ marginBottom: '1.5rem' }}>Rekomendasi Untukmu</h2>
 
-          {/* Search */}
+          {/* Search + active category chip */}
           <form className="filter-bar" onSubmit={handleSearch}>
             <input
               type="text"
@@ -322,33 +399,72 @@ export default function HomePage() {
               aria-label="Cari produk"
             />
             <button type="submit" className="btn btn-outline">Cari</button>
+            {activeCategory && (
+              <span className="category-chip" style={{
+                display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                padding: '0.4rem 0.75rem', borderRadius: '999px',
+                background: 'var(--accent-soft)', color: 'var(--accent)',
+                fontSize: '0.82rem', fontWeight: 600,
+              }}>
+                {activeCategory}
+                <button
+                  type="button"
+                  onClick={clearCategory}
+                  style={{
+                    background: 'none', border: 'none', color: 'var(--accent)',
+                    cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: 0,
+                  }}
+                  aria-label={`Hapus filter ${activeCategory}`}
+                >
+                  &times;
+                </button>
+              </span>
+            )}
           </form>
 
-          {/* Initial loading spinner (only before first page loads) */}
+          {/* Initial loading spinner */}
           {loading && products.length === 0 ? (
             <PageSpinner />
           ) : products.length === 0 ? (
             <div className="empty-state">
               <h3>Produk tidak ditemukan</h3>
-              <p>Coba kata kunci pencarian lain.</p>
+              <p>Coba kata kunci pencarian lain atau ubah filter kategori.</p>
             </div>
           ) : (
             <>
               <div className="product-grid">
                 {products.map(p => {
-                  const price = p.flash_sale && p.flash_sale_price ? p.flash_sale_price : p.price;
+                  const isFlash = p.is_flash_sale || p.flash_sale;
+                  const flashPrice = p.flash_sale_price;
+                  const originalPrice = p.price;
+                  const displayPrice = isFlash && flashPrice ? flashPrice : originalPrice;
+                  const pctOff = isFlash && flashPrice ? discountPercent(originalPrice, flashPrice) : 0;
                   return (
                     <Link key={p.id} href={`/products/${p.id}`} className="product-card">
                       <div className="ph-img">Gambar Produk</div>
                       <div className="product-card-body">
-                        {p.flash_sale && (
-                          <span className="badge badge-danger" style={{ marginBottom: '0.5rem' }}>FLASH SALE</span>
+                        {isFlash && (
+                          <div style={{display:'flex', alignItems:'center', gap:'0.35rem', marginBottom:'0.5rem', flexWrap:'wrap'}}>
+                            <span className="badge badge-danger">FLASH SALE</span>
+                            {pctOff > 0 && (
+                              <span className="badge badge-danger" style={{fontSize:'0.7rem', padding:'0.12rem 0.45rem'}}>
+                                -{pctOff}%
+                              </span>
+                            )}
+                          </div>
                         )}
                         <h3>{p.name}</h3>
+                        {p.category && (
+                          <span className="text-muted" style={{fontSize:'0.78rem', display:'block', marginBottom:'0.35rem'}}>
+                            {p.category}
+                          </span>
+                        )}
                         <div className="product-meta">
-                          <span className="product-price mono">{formatRupiah(price)}</span>
-                          {p.flash_sale && p.flash_sale_price && p.price && (
-                            <span className="price-original">{formatRupiah(p.price)}</span>
+                          <span className="product-price mono" style={isFlash && flashPrice ? {color:'var(--danger)'} : {}}>
+                            {formatRupiah(displayPrice)}
+                          </span>
+                          {isFlash && flashPrice && originalPrice && (
+                            <span className="price-original">{formatRupiah(originalPrice)}</span>
                           )}
                         </div>
                       </div>
@@ -360,7 +476,7 @@ export default function HomePage() {
               {/* Sentinel for infinite scroll */}
               <div ref={sentinelRef} style={{ height: 1 }} />
 
-              {/* Loading more indicator (small, not full page) */}
+              {/* Loading more indicator */}
               {loading && products.length > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem 0' }}>
                   <div className="spinner" />
