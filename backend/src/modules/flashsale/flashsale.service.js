@@ -9,6 +9,7 @@
 const db = require('../../config/db');
 const redis = require('../../config/redis');
 const { AppError, ConflictError, NotFoundError } = require('../../utils/CustomError');
+const storageService = require('../products/storage.service');
 
 const STOCK_KEY_PREFIX = 'flash_sale:stock:';
 
@@ -31,7 +32,7 @@ class FlashSaleService {
   static async getActiveFlashSale() {
     const result = await db.query(
       `SELECT id, name, description, category, price, flash_sale_price, stock,
-              flash_sale_stock, flash_sale_start, flash_sale_end
+              flash_sale_stock, flash_sale_start, flash_sale_end, image_url
        FROM products
        WHERE is_flash_sale = TRUE AND flash_sale_price IS NOT NULL
        ORDER BY id ASC`
@@ -60,6 +61,7 @@ class FlashSaleService {
         flash_sale_stock: p.flash_sale_stock !== null ? Number(p.flash_sale_stock) : null,
         flash_sale_start: p.flash_sale_start,
         flash_sale_end: p.flash_sale_end,
+        image_url: p.image_url ? storageService.getPublicPath(p.image_url) : null,
         remaining_stock: remaining,
         discount_percent: Math.round((1 - flashPrice / Number(p.price)) * 100),
       };
@@ -67,7 +69,9 @@ class FlashSaleService {
   }
 
   // Pembelian flash sale. Wajib dipanggil dengan req.user.id (JWT).
-  static async checkout(userId, productId, quantity = 1) {
+  // shipping: { name, phone, address, city, province, postalCode, note? }
+  // paymentMethod: 'BANK_TRANSFER' | 'COD' | 'QRIS'
+  static async checkout(userId, productId, quantity = 1, shipping = {}, paymentMethod = 'BANK_TRANSFER') {
     const stockKey = `${STOCK_KEY_PREFIX}${productId}`;
 
     // --- TIER 1: pre-check Redis (graceful fallback ke DB bila miss/error) ----
@@ -86,8 +90,20 @@ class FlashSaleService {
     let result;
     try {
       result = await db.query(
-        'SELECT buy_flash_sale_item($1, $2, $3) AS order_id',
-        [userId, productId, quantity]
+        `SELECT buy_flash_sale_item($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) AS order_id`,
+        [
+          userId,
+          productId,
+          quantity,
+          shipping.name,
+          shipping.phone,
+          shipping.address,
+          shipping.city,
+          shipping.province,
+          shipping.postalCode,
+          shipping.note || null,
+          paymentMethod,
+        ]
       );
     } catch (err) {
       // Pesan exception dari RAISE EXCEPTION di PL/pgSQL muncul sebagai err.message.
@@ -116,14 +132,39 @@ class FlashSaleService {
     // Sinkronkan kuota Redis. Order sudah PAID di DB — kegagalan Redis TIDAK
     // menggagalkan order (graceful); jika nanti Redis pre-check over-bolehkan,
     // DB akan menolak dan Redis ikut disinkronkan ke 0.
+    //
+    // BUG GUARD: bila key `flash_sale:stock:<id>` TIDAK ADA (mis. Redis baru
+    // restart sehingga semua key hilang), `DECRBY` akan membuat key = 0 - qty
+    // (NEGATIF) karena Redis menganggap key kosong bernilai 0. Akibatnya TIER 1
+    // pre-check menolak semua checkout selamanya padahal stok PostgreSQL masih ada.
+    // Karena itu:
+    //   * key ADA        → DECRBY (pola existing).
+    //   * key HILANG     → re-init dari stok flash DB yang SUDAH dikurangi oleh
+    //                      SP (nilainya = stok tersisa akurat SETELAH order
+    //                      commit), di-SET langsung TANPA DECRBY lagi.
+    // Kedua jalur tetap best-effort di dalam try/catch (kegagalan Redis tidak
+    // pernah membatalkan order yang sudah PAID).
     try {
-      await redis.decrby(stockKey, quantity);
+      const keyExists = await redis.exists(stockKey);
+      if (keyExists) {
+        await redis.decrby(stockKey, quantity);
+      } else {
+        const stockResult = await db.query(
+          'SELECT flash_sale_stock FROM products WHERE id = $1',
+          [productId]
+        );
+        const remaining = stockResult.rows[0] && stockResult.rows[0].flash_sale_stock !== null
+          ? Math.max(0, Number(stockResult.rows[0].flash_sale_stock))
+          : 0;
+        // String konsisten dengan nilai yang biasa di-SET oleh warmup/killswitch.
+        await redis.set(stockKey, String(remaining));
+      }
     } catch (err) {
       console.warn(`[flashsale] Redis quota sync failed (order ${orderId} tetap valid): ${err.message}`);
     }
 
     const orderResult = await db.query(
-      'SELECT id, total_amount, status FROM orders WHERE id = $1',
+      'SELECT id, total_amount, status, payment_method FROM orders WHERE id = $1',
       [orderId]
     );
     const order = orderResult.rows[0];
@@ -131,6 +172,7 @@ class FlashSaleService {
       orderId: order.id,
       totalAmount: Number(order.total_amount),
       status: order.status,
+      paymentMethod: order.payment_method,
     };
   }
 

@@ -29,3 +29,6 @@ Thumbs.db
 
 # Docker named volumes live inside the Docker engine, not the repo.
 # If a bind mount points to a host directory, add that directory here.
+
+# Product image uploads (local disk storage)
+backend/uploads/

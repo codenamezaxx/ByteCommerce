@@ -6,6 +6,7 @@ const { ValidationError } = require('../../utils/CustomError');
 
 const MAX_LIMIT = 100;
 const MAX_PRICE = 9999999999.99; // batas atas DECIMAL(12,2)
+const MAX_CATEGORY_LENGTH = 50; // panjang maksimal kategori produk
 const SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 // --- Query param parsers ------------------------------------------------------
@@ -71,6 +72,13 @@ function validateCreate(body = {}) {
   const name = typeof body.name === 'string' ? body.name.trim() : '';
   if (!name) errors.push({ field: 'name', message: 'name is required' });
   else if (name.length > 255) errors.push({ field: 'name', message: 'name must be at most 255 characters' });
+
+  const category = typeof body.category === 'string' ? body.category.trim() : '';
+  if (!category) {
+    errors.push({ field: 'category', message: 'category is required' });
+  } else if (category.length > MAX_CATEGORY_LENGTH) {
+    errors.push({ field: 'category', message: `category must be at most ${MAX_CATEGORY_LENGTH} characters` });
+  }
 
   const price = body.price;
   if (price === undefined || price === null || price === '') {
@@ -138,6 +146,15 @@ function validateUpdate(body = {}) {
     else if (name.length > 255) errors.push({ field: 'name', message: 'name must be at most 255 characters' });
   }
 
+  if (body.category !== undefined) {
+    const category = typeof body.category === 'string' ? body.category.trim() : '';
+    if (!category) {
+      errors.push({ field: 'category', message: 'category must not be empty' });
+    } else if (category.length > MAX_CATEGORY_LENGTH) {
+      errors.push({ field: 'category', message: `category must be at most ${MAX_CATEGORY_LENGTH} characters` });
+    }
+  }
+
   if (body.price !== undefined) {
     const price = body.price;
     if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0 || price > MAX_PRICE) {
@@ -170,6 +187,14 @@ function validateUpdate(body = {}) {
     (typeof body.description !== 'string' || body.description.length > 10000)
   ) {
     errors.push({ field: 'description', message: 'description must be a string of at most 10000 characters' });
+  }
+
+  // image_url dikelola endpoint upload/diDELETE admin — boleh di-update manual
+  // lewat PUT selama berbentuk string path publik (≤ 2048) atau null.
+  if (body.image_url !== undefined && body.image_url !== null) {
+    if (typeof body.image_url !== 'string' || body.image_url.length > 2048) {
+      errors.push({ field: 'image_url', message: 'image_url must be a string of at most 2048 characters' });
+    }
   }
 
   return errors;
@@ -225,6 +250,26 @@ const productsController = {
     const id = parseIdParam(req.params.id);
     await productsService.remove(id);
     res.success({ id }, 'Product deleted successfully');
+  },
+
+  uploadImage: async (req, res) => {
+    const id = parseIdParam(req.params.id);
+    if (!req.file) {
+      throw new ValidationError('Image file is required', [
+        { field: 'image', message: 'A file must be uploaded (multipart field "image")' },
+      ]);
+    }
+    const result = await productsService.replaceImage(id, {
+      buffer: req.file.buffer,
+      mime: req.file.mimetype,
+    });
+    res.created(result, 'Product image uploaded successfully');
+  },
+
+  removeImage: async (req, res) => {
+    const id = parseIdParam(req.params.id);
+    const result = await productsService.removeImage(id);
+    res.success(result, 'Product image removed successfully');
   },
 };
 

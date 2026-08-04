@@ -44,6 +44,7 @@ async function createFlashProduct(name, price, stock, flashPrice) {
     .send({
       name,
       description: 'flash sale test product',
+      category: 'Elektronik',
       price,
       stock,
     });
@@ -56,6 +57,28 @@ async function createFlashProduct(name, price, stock, flashPrice) {
     .send({ productId: product.id, flashSalePrice: flashPrice, flashSaleStock: stock });
   expect(setRes.status).toBe(201);
   return setRes.body.data;
+}
+
+// Payload shipping + payment valid, dipakai semua test checkout.
+const VALID_SHIPPING = {
+  name: 'Budi Santoso',
+  phone: '081234567890',
+  address: 'Jl. Merdeka No. 1',
+  city: 'Jakarta',
+  province: 'DKI Jakarta',
+  postalCode: '10110',
+  note: 'Kantor',
+};
+const VALID_PAYMENT_METHOD = 'BANK_TRANSFER';
+
+function checkoutBody(overrides = {}) {
+  return {
+    productId: productA.id,
+    quantity: 1,
+    shipping: VALID_SHIPPING,
+    paymentMethod: VALID_PAYMENT_METHOD,
+    ...overrides,
+  };
 }
 
 beforeAll(async () => {
@@ -128,7 +151,7 @@ describe('POST /api/flashsale/checkout', () => {
     expect(res.body.code).toBe('AUTHENTICATION_FAILED');
   });
 
-  it('validates body (invalid productId / quantity)', async () => {
+  it('validates body (invalid productId / quantity) -> 400', async () => {
     const res = await request(app)
       .post('/api/flashsale/checkout')
       .set('Authorization', `Bearer ${userToken}`)
@@ -139,19 +162,59 @@ describe('POST /api/flashsale/checkout', () => {
     expect(res.body.errors.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('purchases via stored procedure (atomic) and returns order', async () => {
+  it('rejects invalid paymentMethod -> 422 VALIDATION_ERROR', async () => {
     const res = await request(app)
       .post('/api/flashsale/checkout')
       .set('Authorization', `Bearer ${userToken}`)
-      .send({ productId: productA.id, quantity: 2 });
+      .send(checkoutBody({ paymentMethod: 'PAYPAL' }));
+
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(res.body.errors).toContainEqual(expect.objectContaining({ field: 'paymentMethod' }));
+  });
+
+  it('rejects missing required shipping field -> 422 VALIDATION_ERROR', async () => {
+    const res = await request(app)
+      .post('/api/flashsale/checkout')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send(checkoutBody({ shipping: { ...VALID_SHIPPING, city: '   ' } }));
+
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(res.body.errors).toContainEqual(expect.objectContaining({ field: 'shipping.city' }));
+  });
+
+  it('purchases via stored procedure (atomic) and stores shipping + payment', async () => {
+    const res = await request(app)
+      .post('/api/flashsale/checkout')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send(checkoutBody({ productId: productA.id, quantity: 2, paymentMethod: 'COD' }));
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
     expect(res.body.data).toHaveProperty('orderId');
     expect(res.body.data.status).toBe('PAID');
     expect(res.body.data.totalAmount).toBe(75000 * 2); // flash price * qty
+    expect(res.body.data.paymentMethod).toBe('COD');
 
     createdOrderIds.push(res.body.data.orderId);
+
+    // Order tersimpan dengan data pengiriman + metode pembayaran.
+    const orderResult = await db.query(
+      `SELECT shipping_name, shipping_phone, shipping_address, shipping_city,
+              shipping_province, shipping_postal_code, shipping_note, payment_method
+       FROM orders WHERE id = $1`,
+      [res.body.data.orderId]
+    );
+    const order = orderResult.rows[0];
+    expect(order.shipping_name).toBe('Budi Santoso');
+    expect(order.shipping_phone).toBe('081234567890');
+    expect(order.shipping_address).toBe('Jl. Merdeka No. 1');
+    expect(order.shipping_city).toBe('Jakarta');
+    expect(order.shipping_province).toBe('DKI Jakarta');
+    expect(order.shipping_postal_code).toBe('10110');
+    expect(order.shipping_note).toBe('Kantor');
+    expect(order.payment_method).toBe('COD');
 
     // Kuota flash sale di DB benar-benar berkurang (bukan kalkulasi client).
     // SP baru memotong flash_sale_stock; stok asli TIDAK disentuh.
@@ -169,7 +232,7 @@ describe('POST /api/flashsale/checkout', () => {
     const res = await request(app)
       .post('/api/flashsale/checkout')
       .set('Authorization', `Bearer ${userToken}`)
-      .send({ productId: productB.id, quantity: 2 });
+      .send(checkoutBody({ productId: productB.id, quantity: 2 }));
 
     expect(res.status).toBe(201);
     expect(res.body.data.totalAmount).toBe(100000 * 2);
@@ -185,7 +248,7 @@ describe('POST /api/flashsale/checkout', () => {
     const res = await request(app)
       .post('/api/flashsale/checkout')
       .set('Authorization', `Bearer ${userToken}`)
-      .send({ productId: productA.id, quantity: 99 });
+      .send(checkoutBody({ productId: productA.id, quantity: 99 }));
 
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('OUT_OF_STOCK_DB');
@@ -204,7 +267,7 @@ describe('POST /api/flashsale/checkout', () => {
     const res = await request(app)
       .post('/api/flashsale/checkout')
       .set('Authorization', `Bearer ${userToken}`)
-      .send({ productId: NON_FLASH_PRODUCT_ID, quantity: 1 });
+      .send(checkoutBody({ productId: NON_FLASH_PRODUCT_ID, quantity: 1 }));
 
     expect(res.status).toBe(409);
     expect(res.body.code).toBe('NOT_FLASH_SALE');
@@ -214,7 +277,7 @@ describe('POST /api/flashsale/checkout', () => {
     const res = await request(app)
       .post('/api/flashsale/checkout')
       .set('Authorization', `Bearer ${userToken}`)
-      .send({ productId: 999999, quantity: 1 });
+      .send(checkoutBody({ productId: 999999, quantity: 1 }));
 
     expect(res.status).toBe(404);
     expect(res.body.code).toBe('PRODUCT_NOT_FOUND');
@@ -263,7 +326,7 @@ describe('Admin flash sale control', () => {
     const checkoutRes = await request(app)
       .post('/api/flashsale/checkout')
       .set('Authorization', `Bearer ${userToken}`)
-      .send({ productId: productA.id, quantity: 1 });
+      .send(checkoutBody());
 
     expect(checkoutRes.status).toBe(400);
     expect(checkoutRes.body.code).toBe('OUT_OF_STOCK_REDIS');
@@ -282,7 +345,7 @@ describe('Admin flash sale control', () => {
     const res = await request(app)
       .post('/api/flashsale/checkout')
       .set('Authorization', `Bearer ${userToken}`)
-      .send({ productId: productA.id, quantity: 1 });
+      .send(checkoutBody());
 
     expect(res.status).toBe(201);
     expect(res.body.data.totalAmount).toBe(75000);
@@ -318,6 +381,7 @@ describe('Admin flash sale items (set / remove)', () => {
       .send({
         name: `${TEST_PRODUCT_NAME_PREFIX} SetItem ${ts}`,
         description: 'admin set item',
+        category: 'Elektronik',
         price: 500000,
         stock: 10,
       });
@@ -354,7 +418,7 @@ describe('Admin flash sale items (set / remove)', () => {
     const created = await request(app)
       .post('/api/products')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: `${TEST_PRODUCT_NAME_PREFIX} BadPrice ${ts}`, price: 100000, stock: 5 });
+      .send({ name: `${TEST_PRODUCT_NAME_PREFIX} BadPrice ${ts}`, category: 'Elektronik', price: 100000, stock: 5 });
     expect(created.status).toBe(201);
 
     const res = await request(app)
@@ -372,7 +436,7 @@ describe('Admin flash sale items (set / remove)', () => {
     const created = await request(app)
       .post('/api/products')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: `${TEST_PRODUCT_NAME_PREFIX} BadStock ${ts}`, price: 100000, stock: 5 });
+      .send({ name: `${TEST_PRODUCT_NAME_PREFIX} BadStock ${ts}`, category: 'Elektronik', price: 100000, stock: 5 });
     expect(created.status).toBe(201);
 
     const res = await request(app)
@@ -400,7 +464,7 @@ describe('Admin flash sale items (set / remove)', () => {
     const created = await request(app)
       .post('/api/products')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: `${TEST_PRODUCT_NAME_PREFIX} RemoveItem ${ts}`, price: 300000, stock: 8 });
+      .send({ name: `${TEST_PRODUCT_NAME_PREFIX} RemoveItem ${ts}`, category: 'Elektronik', price: 300000, stock: 8 });
     expect(created.status).toBe(201);
     const productId = created.body.data.id;
 
@@ -432,5 +496,36 @@ describe('Admin flash sale items (set / remove)', () => {
 
     expect(res.status).toBe(404);
     expect(res.body.code).toBe('PRODUCT_NOT_FOUND');
+  });
+});
+
+describe('Redis cache loss recovery (key hilang setelah restart Redis)', () => {
+  it('re-initializes a missing stock key from DB instead of creating a negative quota', async () => {
+    // Simulasi: Redis baru restart → semua key flash_sale:stock:* hilang.
+    await redis.del(`${STOCK_KEY_PREFIX}${productA.id}`);
+    expect(await redis.get(`${STOCK_KEY_PREFIX}${productA.id}`)).toBe(null);
+
+    // Checkout harus TETAP SUKSES (bukan OUT_OF_STOCK_REDIS) karena stok DB ada.
+    const res = await request(app)
+      .post('/api/flashsale/checkout')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send(checkoutBody({ productId: productA.id, quantity: 1 }));
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    createdOrderIds.push(res.body.data.orderId);
+
+    // Key harus ADA kembali, TIDAK negatif, dan akurat = stok flash tersisa di DB.
+    const cached = await redis.get(`${STOCK_KEY_PREFIX}${productA.id}`);
+    expect(cached).not.toBe(null);
+    expect(Number(cached)).toBeGreaterThanOrEqual(0);
+
+    const stockResult = await db.query(
+      'SELECT flash_sale_stock FROM products WHERE id = $1',
+      [productA.id]
+    );
+    const dbStock = Number(stockResult.rows[0].flash_sale_stock);
+    expect(dbStock).toBeGreaterThanOrEqual(0);
+    expect(Number(cached)).toBe(dbStock);
   });
 });

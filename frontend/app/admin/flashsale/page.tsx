@@ -44,6 +44,9 @@ export default function AdminFlashSalePage() {
   const [killModalOpen, setKillModalOpen] = useState(false);
   const [killConfirmStep, setKillConfirmStep] = useState(0);
   const [killActivated, setKillActivated] = useState(false);
+  const [killConfirmText, setKillConfirmText] = useState('');
+  const [killError, setKillError] = useState('');
+  const [pageError, setPageError] = useState('');
 
   /* ---- add form ---- */
   const [formProductId, setFormProductId] = useState<number | ''>('');
@@ -125,7 +128,7 @@ export default function AdminFlashSalePage() {
       setKillConfirmStep(0);
       setFlashProducts([]);
     } catch (err: any) {
-      alert(err?.message || 'Gagal mengaktifkan kill-switch');
+      setKillError(err?.message || 'Gagal mengaktifkan kill-switch');
     }
   };
 
@@ -163,11 +166,12 @@ export default function AdminFlashSalePage() {
 
   const handleRemoveFlashSale = async (productId: number, productName: string) => {
     if (!window.confirm(`Hapus "${productName}" dari flash sale?`)) return;
+    setPageError('');
     try {
       await flashsaleApi.removeItem(productId);
       await Promise.all([loadFlashProducts(), loadAllProducts()]);
     } catch (err: any) {
-      alert(err?.message || 'Gagal menghapus produk dari flash sale.');
+      setPageError(err?.message || 'Gagal menghapus produk dari flash sale.');
     }
   };
 
@@ -192,7 +196,7 @@ export default function AdminFlashSalePage() {
         </nav>
         <div className="sidebar-divider"></div>
         <div style={{padding:'0 0.75rem'}}>
-          <button className="btn btn-danger btn-block" onClick={() => { setKillModalOpen(true); setKillConfirmStep(0); }}>Emergency Stop</button>
+          <button className="btn btn-danger btn-block" onClick={() => { setKillModalOpen(true); setKillConfirmStep(0); setKillConfirmText(''); setKillError(''); }}>Emergency Stop</button>
         </div>
         <div className="sidebar-footer"></div>
       </aside>
@@ -221,7 +225,7 @@ export default function AdminFlashSalePage() {
               <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:'1rem', marginBottom:'1rem'}}>
                 {/* Select product */}
                 <div>
-                  <label style={{display:'block', fontSize:'0.82rem', fontWeight:600, marginBottom:'0.35rem', color:'var(--muted)'}}>
+                  <label className="form-label">
                     Produk
                   </label>
                   <select
@@ -241,7 +245,7 @@ export default function AdminFlashSalePage() {
 
                 {/* Flash price */}
                 <div>
-                  <label style={{display:'block', fontSize:'0.82rem', fontWeight:600, marginBottom:'0.35rem', color:'var(--muted)'}}>
+                  <label className="form-label">
                     Harga Flash Sale
                   </label>
                   <input
@@ -258,7 +262,7 @@ export default function AdminFlashSalePage() {
 
                 {/* Flash stock */}
                 <div>
-                  <label style={{display:'block', fontSize:'0.82rem', fontWeight:600, marginBottom:'0.35rem', color:'var(--muted)'}}>
+                  <label className="form-label">
                     Stok Flash Sale
                   </label>
                   <input
@@ -290,7 +294,7 @@ export default function AdminFlashSalePage() {
                         fontFamily: 'var(--font-mono)',
                         fontSize: '1.5rem',
                         fontWeight: 700,
-                        color: previewInvalid ? 'var(--danger)' : 'var(--danger)',
+                        color: 'var(--danger)',
                       }}>
                         {formatRupiah(previewFlashPrice)}
                       </span>
@@ -341,6 +345,7 @@ export default function AdminFlashSalePage() {
           <div className="section-header" style={{marginBottom:'1rem'}}>
             <h2>Flash Sale Aktif</h2>
           </div>
+          {pageError && <div className="toast toast-error" style={{marginBottom:'0.75rem'}}>{pageError}</div>}
           {flashProducts.length === 0 ? (
             <div className="empty-state" style={{padding:'2rem 1.25rem'}}>
               <h3>Tidak ada flash sale aktif</h3>
@@ -435,7 +440,7 @@ export default function AdminFlashSalePage() {
                 <h4 style={{margin:0}}>
                   {killConfirmStep === 0 ? 'Konfirmasi Emergency Stop' : 'Konfirmasi Akhir'}
                 </h4>
-                <button className="modal-close" onClick={() => { setKillModalOpen(false); setKillConfirmStep(0); }}>x</button>
+                <button className="modal-close" onClick={() => { setKillModalOpen(false); setKillConfirmStep(0); setKillConfirmText(''); setKillError(''); }}>x</button>
               </div>
               <div className="modal-body">
                 {killConfirmStep === 0 ? (
@@ -446,19 +451,31 @@ export default function AdminFlashSalePage() {
                     <span className="badge badge-warning" style={{fontSize:'0.8rem', padding:'0.35rem 0.75rem'}}>
                       Tindakan ini tidak dapat dibatalkan
                     </span>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Ketik KILL untuk lanjut"
+                      value={killConfirmText}
+                      onChange={e => setKillConfirmText(e.target.value)}
+                      style={{marginTop:'1rem', width:'100%'}}
+                      autoFocus
+                    />
                   </>
                 ) : (
                   <p style={{fontSize:'0.9rem', lineHeight:1.6}}>
                     Ketik <strong>KILL</strong> untuk mengonfirmasi bahwa kamu ingin menghentikan SEMUA flash sale secara permanen.
                   </p>
                 )}
+                {killError && (
+                  <p className="toast toast-error" style={{marginBottom:'0.75rem', marginTop:'1rem'}}>{killError}</p>
+                )}
               </div>
               <div className="modal-footer">
-                <button className="btn btn-ghost" onClick={() => { setKillModalOpen(false); setKillConfirmStep(0); }}>Batal</button>
+                <button className="btn btn-ghost" onClick={() => { setKillModalOpen(false); setKillConfirmStep(0); setKillConfirmText(''); setKillError(''); }}>Batal</button>
                 {killConfirmStep === 0 ? (
                   <button className="btn btn-danger" onClick={() => setKillConfirmStep(1)}>Lanjutkan</button>
                 ) : (
-                  <button className="btn btn-danger" onClick={handleKillswitch}>Kill Switch</button>
+                  <button className="btn btn-danger" disabled={killConfirmText !== 'KILL'} onClick={handleKillswitch}>Kill Switch</button>
                 )}
               </div>
             </div>

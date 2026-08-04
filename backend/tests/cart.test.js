@@ -302,7 +302,7 @@ describe('Stock validation', () => {
     const created = await request(app)
       .post('/api/products')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: 'Cart Test Product - No Stock', price: 10000, stock: 0 });
+      .send({ name: 'Cart Test Product - No Stock', category: 'Aksesoris', price: 10000, stock: 0 });
     outOfStockProductId = created.body.data.id;
   });
 

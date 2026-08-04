@@ -5,7 +5,10 @@
 const db = require('../../config/db');
 const { NotFoundError } = require('../../utils/CustomError');
 
-const ORDER_COLUMNS = 'id, user_id, total_amount, status, created_at';
+const ORDER_COLUMNS =
+  'id, user_id, total_amount, status, created_at, ' +
+  'shipping_name, shipping_phone, shipping_address, shipping_city, shipping_province, ' +
+  'shipping_postal_code, shipping_note, payment_method';
 
 // pg mengembalikan DECIMAL/NUMERIC sebagai string — normalisasi ke Number untuk JSON.
 function mapOrder(row) {
@@ -47,6 +50,8 @@ class OrdersService {
     // karena kolom lain orders bergantung fungsional pada PK.
     const listResult = await db.query(
       `SELECT o.id, o.user_id, o.total_amount, o.status, o.created_at,
+              o.shipping_name, o.shipping_phone, o.shipping_address, o.shipping_city,
+              o.shipping_province, o.shipping_postal_code, o.shipping_note, o.payment_method,
               COUNT(oi.id)::int AS item_count
        FROM orders o
        LEFT JOIN order_items oi ON oi.order_id = o.id

@@ -48,6 +48,8 @@ CREATE TABLE products (
     flash_sale_stock INT,
     flash_sale_start TIMESTAMPTZ,
     flash_sale_end TIMESTAMPTZ,
+    -- Key file gambar di uploads/products (path publik: storage.service.getPublicPath).
+    image_url TEXT,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -84,6 +86,16 @@ CREATE TABLE orders (
     user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     total_amount DECIMAL(12, 2) NOT NULL CHECK (total_amount >= 0),
     status VARCHAR(30) DEFAULT 'PAID' CHECK (status IN ('PENDING', 'PAID', 'FAILED', 'CANCELLED')),
+    -- Alamat pengiriman (opsional per order lama; wajib diisi untuk order baru via checkout).
+    shipping_name VARCHAR(100),
+    shipping_phone VARCHAR(20),
+    shipping_address TEXT,
+    shipping_city VARCHAR(100),
+    shipping_province VARCHAR(100),
+    shipping_postal_code VARCHAR(20),
+    shipping_note TEXT,
+    payment_method VARCHAR(30) NOT NULL DEFAULT 'BANK_TRANSFER'
+        CHECK (payment_method IN ('BANK_TRANSFER', 'COD', 'QRIS')),
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -111,13 +123,22 @@ CREATE INDEX idx_carts_user ON carts(user_id);
 --   * Validasi keberadaan produk, status flash sale, harga flash, dan stok.
 --   * Pemotongan stok ATOMIK di database pada flash_sale_stock (alokasi khusus
 --     flash sale; kolom stock asli TIDAK disentuh) — bukan kalkulasi di client.
---   * Pembuatan order header + order items dalam satu transaksi implisit.
+--   * Pembuatan order header (termasuk alamat pengiriman & metode pembayaran)
+--     + order items dalam satu transaksi implisit.
 -- Return: id order yang baru dibuat.
 -- =============================================================================
 CREATE OR REPLACE FUNCTION buy_flash_sale_item(
     p_user_id INT,
     p_product_id INT,
-    p_quantity INT
+    p_quantity INT,
+    p_shipping_name VARCHAR(100),
+    p_shipping_phone VARCHAR(20),
+    p_shipping_address TEXT,
+    p_shipping_city VARCHAR(100),
+    p_shipping_province VARCHAR(100),
+    p_shipping_postal_code VARCHAR(20),
+    p_shipping_note TEXT,
+    p_payment_method VARCHAR(30)
 ) RETURNS INT AS $$
 DECLARE
     v_stock INT;
@@ -155,8 +176,16 @@ BEGIN
     SET flash_sale_stock = flash_sale_stock - p_quantity
     WHERE id = p_product_id;
 
-    INSERT INTO orders (user_id, total_amount, status)
-    VALUES (p_user_id, v_flash_price * p_quantity, 'PAID')
+    INSERT INTO orders (
+        user_id, total_amount, status,
+        shipping_name, shipping_phone, shipping_address, shipping_city,
+        shipping_province, shipping_postal_code, shipping_note, payment_method
+    )
+    VALUES (
+        p_user_id, v_flash_price * p_quantity, 'PAID',
+        p_shipping_name, p_shipping_phone, p_shipping_address, p_shipping_city,
+        p_shipping_province, p_shipping_postal_code, p_shipping_note, p_payment_method
+    )
     RETURNING id INTO v_order_id;
 
     INSERT INTO order_items (order_id, product_id, quantity, price_at_purchase)

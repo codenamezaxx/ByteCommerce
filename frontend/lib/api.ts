@@ -117,8 +117,21 @@ export const cartApi = {
 // Flash Sale
 export const flashsaleApi = {
   active: () => request('/api/flashsale/active'),
-  checkout: (product_id: number, quantity: number = 1) =>
-    request('/api/flashsale/checkout', { method: 'POST', body: JSON.stringify({ productId: product_id, quantity }) }),
+  checkout: (
+    product_id: number,
+    quantity: number = 1,
+    shipping?: { name: string; phone: string; address: string; city: string; province: string; postalCode: string; note?: string },
+    paymentMethod?: string,
+  ) =>
+    request('/api/flashsale/checkout', {
+      method: 'POST',
+      body: JSON.stringify({
+        productId: product_id,
+        quantity,
+        ...(shipping ? { shipping } : {}),
+        ...(paymentMethod ? { paymentMethod } : {}),
+      }),
+    }),
   setItem: (productId: number, flashSalePrice: number, flashSaleStock: number) =>
     request('/api/admin/flashsale/items', {
       method: 'POST',
@@ -143,4 +156,35 @@ export const adminApi = {
     request('/api/admin/flashsale/warmup', { method: 'POST' }),
   flashsaleKillswitch: () =>
     request('/api/admin/flashsale/killswitch', { method: 'POST' }),
+
+  // Image upload — uses raw fetch (NOT request()) to avoid Content-Type: application/json
+  uploadImage: async (productId: number, file: File): Promise<{ image_url: string }> => {
+    const fd = new FormData();
+    fd.append('image', file);
+    const res = await fetch(`/api/admin/products/${productId}/image`, {
+      method: 'POST',
+      credentials: 'include',
+      body: fd,
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) {
+      const message = body?.message || 'Gagal upload gambar';
+      throw new ApiError(message, res.status, body?.code || 'UPLOAD_ERROR', body?.errors);
+    }
+    return body?.data || body;
+  },
+
+  // Image delete — uses raw fetch for consistency
+  deleteImage: async (productId: number): Promise<{ image_url: null }> => {
+    const res = await fetch(`/api/admin/products/${productId}/image`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) {
+      const message = body?.message || 'Gagal menghapus gambar';
+      throw new ApiError(message, res.status, body?.code || 'DELETE_ERROR', body?.errors);
+    }
+    return body?.data || body;
+  },
 };

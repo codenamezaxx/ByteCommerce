@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { cartApi, flashsaleApi } from '@/lib/api';
+import { cartApi } from '@/lib/api';
 import { formatRupiah } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import ProductImage from '@/components/ProductImage';
 import { PageSpinner } from '@/components/Spinner';
 
 interface CartItem {
@@ -14,15 +15,20 @@ interface CartItem {
   name?: string;
   price: number;
   flash_sale_price?: number | null;
+  is_flash_sale?: boolean;
+  image_url?: string | null;
   quantity: number;
-  flash_sale?: boolean;
+}
+
+function discountPercent(original: number, discounted: number): number {
+  if (!original || original <= 0 || !discounted || discounted >= original) return 0;
+  return Math.round((1 - discounted / original) * 100);
 }
 
 export default function CartPage() {
   const { user } = useAuth();
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [flashProducts, setFlashProducts] = useState<any[]>([]);
 
   const loadCart = async () => {
     try {
@@ -33,14 +39,7 @@ export default function CartPage() {
     setLoading(false);
   };
 
-  useEffect(() => {
-    loadCart();
-    // Load flash products to determine checkout type
-    flashsaleApi.active().then((res: any) => {
-      // Backend: { success, message, data: { products: [...] } }
-      setFlashProducts(Array.isArray(res?.data) ? res.data : res?.data?.products || []);
-    }).catch(() => {});
-  }, []);
+  useEffect(() => { loadCart(); }, []);
 
   const updateQty = async (id: number, qty: number) => {
     if (qty < 1) return;
@@ -63,8 +62,11 @@ export default function CartPage() {
     }
   };
 
-  const subtotal = items.reduce((sum, item) => sum + (item.flash_sale_price ?? item.price) * item.quantity, 0);
-  const hasFlashItems = items.some(item => flashProducts.some((fp: any) => fp.id === item.product_id));
+  /* ---- Derived totals ---- */
+  const normalSubtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const actualSubtotal = items.reduce((sum, item) => sum + (item.flash_sale_price ?? item.price) * item.quantity, 0);
+  const flashDiscount = normalSubtotal - actualSubtotal;
+  const hasFlashItems = items.some(item => item.is_flash_sale);
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   if (loading) return <PageSpinner />;
@@ -101,26 +103,55 @@ export default function CartPage() {
 
             <div className="card" style={{padding:0}}>
               <div style={{padding:'0.25rem 1.25rem'}}>
-                {items.map(item => (
-                  <div key={item.id} className="cart-item">
-                    <div className="ph-img" style={{width:64, height:64}}>Gambar</div>
-                    <div className="cart-item-info">
-                      <Link href={`/products/${item.product_id}`} style={{textDecoration:'none', color:'inherit'}}>
-                        <h4>{item.product_name || item.name || `Produk #${item.product_id}`}</h4>
-                      </Link>
-                      <span className="cart-item-price">{formatRupiah(item.flash_sale_price ?? item.price)}</span>
-                      <div className="cart-item-actions">
-                        <div className="qty-control">
-                          <button className="qty-btn" onClick={() => updateQty(item.id, item.quantity - 1)} disabled={item.quantity <= 1} aria-label="Kurangi jumlah">&minus;</button>
-                          <span className="qty-value">{item.quantity}</span>
-                          <button className="qty-btn" onClick={() => updateQty(item.id, item.quantity + 1)} aria-label="Tambah jumlah">+</button>
+                {items.map(item => {
+                  const isFlash = !!item.is_flash_sale;
+                  const flashPrice = item.flash_sale_price;
+                  const originalPrice = item.price;
+                  const displayPrice = isFlash && flashPrice ? flashPrice : originalPrice;
+                  const pctOff = isFlash && flashPrice ? discountPercent(originalPrice, flashPrice) : 0;
+
+                  return (
+                    <div key={item.id} className="cart-item">
+                      <ProductImage src={item.image_url} alt={item.product_name || item.name || 'Produk'} className="ph-img" lazy />
+                      <div className="cart-item-info">
+                        <Link href={`/products/${item.product_id}`} style={{textDecoration:'none', color:'inherit'}}>
+                          <h4>{item.product_name || item.name || `Produk #${item.product_id}`}</h4>
+                        </Link>
+
+                        {isFlash && flashPrice ? (
+                          <div style={{display:'flex', alignItems:'center', gap:'0.4rem', flexWrap:'wrap'}}>
+                            <span className="cart-item-price" style={{color:'var(--danger)'}}>
+                              {formatRupiah(displayPrice)}
+                            </span>
+                            <span style={{
+                              fontFamily:'var(--font-mono)', fontSize:'0.8rem',
+                              color:'var(--muted)', textDecoration:'line-through',
+                            }}>
+                              {formatRupiah(originalPrice)}
+                            </span>
+                            {pctOff > 0 && (
+                              <span className="badge badge-danger" style={{fontSize:'0.68rem', padding:'0.1rem 0.4rem'}}>
+                                -{pctOff}%
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="cart-item-price">{formatRupiah(originalPrice)}</span>
+                        )}
+
+                        <div className="cart-item-actions">
+                          <div className="qty-control">
+                            <button className="qty-btn" onClick={() => updateQty(item.id, item.quantity - 1)} disabled={item.quantity <= 1} aria-label="Kurangi jumlah">&minus;</button>
+                            <span className="qty-value">{item.quantity}</span>
+                            <button className="qty-btn" onClick={() => updateQty(item.id, item.quantity + 1)} aria-label="Tambah jumlah">+</button>
+                          </div>
+                          <span className="cart-item-total">{formatRupiah(displayPrice * item.quantity)}</span>
+                          <button className="cart-remove" onClick={() => removeItem(item.id)} aria-label="Hapus item">&times;</button>
                         </div>
-                        <span className="cart-item-total">{formatRupiah((item.flash_sale_price ?? item.price) * item.quantity)}</span>
-                        <button className="cart-remove" onClick={() => removeItem(item.id)} aria-label="Hapus item">&times;</button>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -130,11 +161,17 @@ export default function CartPage() {
               <h3 style={{fontSize:'1.05rem'}}>Ringkasan Belanja</h3>
               <div className="summary-row">
                 <span>Subtotal</span>
-                <span className="mono">{formatRupiah(subtotal)}</span>
+                <span className="mono">{formatRupiah(normalSubtotal)}</span>
               </div>
+              {flashDiscount > 0 && (
+                <div className="summary-row" style={{color:'var(--success)'}}>
+                  <span>Potongan Flash Sale</span>
+                  <span className="mono" style={{fontWeight:600}}>&minus;{formatRupiah(flashDiscount)}</span>
+                </div>
+              )}
               <div className="summary-row" style={{paddingTop:'0.85rem', marginTop:'0.25rem'}}>
                 <span className="summary-total">Total</span>
-                <span className="summary-total">{formatRupiah(subtotal)}</span>
+                <span className="summary-total">{formatRupiah(actualSubtotal)}</span>
               </div>
               <div style={{marginTop:'1.25rem'}}>
                 {hasFlashItems && !user ? (

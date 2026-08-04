@@ -1,8 +1,11 @@
 // P4 — Product module integration tests.
 // Supertest langsung terhadap app (in-process); DB & Redis berasal dari stack Docker.
+const fs = require('fs');
+const path = require('path');
 const request = require('supertest');
 const app = require('../src/app');
 const db = require('../src/config/db');
+const storageService = require('../src/modules/products/storage.service');
 
 const ADMIN_EMAIL = 'admin@bytecommerce.com';
 const USER_EMAIL = 'budi@example.com';
@@ -190,6 +193,7 @@ describe('POST /api/products (create)', () => {
       .send({
         name: TEST_PRODUCT_NAME,
         description: 'Test product description',
+        category: 'Aksesoris',
         price: 50000,
         stock: 25,
         is_flash_sale: false,
@@ -200,6 +204,7 @@ describe('POST /api/products (create)', () => {
     expect(res.body.data.id).toBeDefined();
     expect(res.body.data.name).toBe(TEST_PRODUCT_NAME);
     expect(res.body.data.description).toBe('Test product description');
+    expect(res.body.data.category).toBe('Aksesoris');
     expect(res.body.data.price).toBe(50000);
     expect(res.body.data.stock).toBe(25);
     expect(res.body.data.is_flash_sale).toBe(false);
@@ -214,6 +219,7 @@ describe('POST /api/products (create)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
         name: `${TEST_PRODUCT_NAME} FS`,
+        category: 'Elektronik',
         price: 100000,
         stock: 5,
         is_flash_sale: true,
@@ -223,13 +229,36 @@ describe('POST /api/products (create)', () => {
     expect(res.status).toBe(201);
     expect(res.body.data.is_flash_sale).toBe(true);
     expect(res.body.data.flash_sale_price).toBe(70000);
+    expect(res.body.data.category).toBe('Elektronik');
+  });
+
+  it('rejects create without category -> 400 VALIDATION_ERROR', async () => {
+    const res = await request(app)
+      .post('/api/products')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'No Category', price: 100, stock: 1 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(res.body.errors).toContainEqual(expect.objectContaining({ field: 'category' }));
+  });
+
+  it('rejects category longer than 50 chars -> 400 VALIDATION_ERROR', async () => {
+    const res = await request(app)
+      .post('/api/products')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Long Category', category: 'x'.repeat(51), price: 100, stock: 1 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(res.body.errors).toContainEqual(expect.objectContaining({ field: 'category' }));
   });
 
   it('rejects empty name -> 400 VALIDATION_ERROR', async () => {
     const res = await request(app)
       .post('/api/products')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: '', price: 100, stock: 1 });
+      .send({ name: '', category: 'Aksesoris', price: 100, stock: 1 });
 
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('VALIDATION_ERROR');
@@ -240,7 +269,7 @@ describe('POST /api/products (create)', () => {
     const res = await request(app)
       .post('/api/products')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: 'Zero Price', price: 0, stock: 1 });
+      .send({ name: 'Zero Price', category: 'Aksesoris', price: 0, stock: 1 });
 
     expect(res.status).toBe(400);
     expect(res.body.errors).toContainEqual(expect.objectContaining({ field: 'price' }));
@@ -250,7 +279,7 @@ describe('POST /api/products (create)', () => {
     const res = await request(app)
       .post('/api/products')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: 'FS No Price', price: 100, stock: 1, is_flash_sale: true });
+      .send({ name: 'FS No Price', category: 'Elektronik', price: 100, stock: 1, is_flash_sale: true });
 
     expect(res.status).toBe(400);
     expect(res.body.errors).toContainEqual(
@@ -272,6 +301,33 @@ describe('PUT /api/products/:id (update)', () => {
     expect(res.body.data.price).toBe(55000);
     expect(res.body.data.stock).toBe(30);
     expect(res.body.data.name).toBe(TEST_PRODUCT_NAME);
+  });
+
+  it('updates category as admin -> 200 and persisted', async () => {
+    const res = await request(app)
+      .put(`/api/products/${createdProductId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ category: 'Elektronik' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.id).toBe(createdProductId);
+    expect(res.body.data.category).toBe('Elektronik');
+
+    // Pastikan tersimpan di DB (bukan hanya di respons).
+    const dbCheck = await db.query('SELECT category FROM products WHERE id = $1', [createdProductId]);
+    expect(dbCheck.rows[0].category).toBe('Elektronik');
+  });
+
+  it('rejects empty category on update -> 400 VALIDATION_ERROR', async () => {
+    const res = await request(app)
+      .put(`/api/products/${createdProductId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ category: '   ' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(res.body.errors).toContainEqual(expect.objectContaining({ field: 'category' }));
   });
 
   it('returns 404 for unknown id', async () => {
@@ -325,5 +381,169 @@ describe('DELETE /api/products/:id (remove)', () => {
 
     expect(res.status).toBe(404);
     expect(res.body.code).toBe('PRODUCT_NOT_FOUND');
+  });
+});
+
+describe('Product image upload/delete (POST & DELETE /api/admin/products/:id/image)', () => {
+  // PNG 1x1 valid — cukup untuk menguji alur upload (bukan parsing gambar).
+  const TINY_PNG = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+    'base64'
+  );
+  const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+
+  let imageProductId;
+  const uploadedKeys = [];
+
+  beforeAll(async () => {
+    const created = await request(app)
+      .post('/api/products')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: `${TEST_PRODUCT_NAME} Image`, category: 'Aksesoris', price: 20000, stock: 3 });
+    expect(created.status).toBe(201);
+    imageProductId = created.body.data.id;
+  });
+
+  afterAll(async () => {
+    // Hapus semua file upload yang dibuat test (baris produk dibersihkan oleh
+    // afterAll tingkat atas via pola nama 'Test Product%').
+    for (const key of uploadedKeys) {
+      try {
+        await storageService.remove(key);
+      } catch (err) {
+        // ignore
+      }
+    }
+    const row = await db.query('SELECT image_url FROM products WHERE id = $1', [imageProductId]);
+    if (row.rows[0] && row.rows[0].image_url) {
+      try {
+        await storageService.remove(row.rows[0].image_url);
+      } catch (err) {
+        // ignore
+      }
+    }
+  });
+
+  it('rejects upload without auth -> 401', async () => {
+    const res = await request(app)
+      .post(`/api/admin/products/${imageProductId}/image`)
+      .attach('image', TINY_PNG, { filename: 'noauth.png', contentType: 'image/png' });
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('AUTHENTICATION_FAILED');
+  });
+
+  it('rejects non-admin user -> 403', async () => {
+    const res = await request(app)
+      .post(`/api/admin/products/${imageProductId}/image`)
+      .set('Authorization', `Bearer ${userToken}`)
+      .attach('image', TINY_PNG, { filename: 'forbidden.png', contentType: 'image/png' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('FORBIDDEN');
+  });
+
+  it('uploads image as admin -> 201 with public image_url and file on disk', async () => {
+    const res = await request(app)
+      .post(`/api/admin/products/${imageProductId}/image`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .attach('image', TINY_PNG, { filename: 'test.png', contentType: 'image/png' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.image_url).toMatch(/^\/uploads\/products\/.+\.png$/);
+
+    // Key (nama file) tersimpan di DB.
+    const dbCheck = await db.query('SELECT image_url FROM products WHERE id = $1', [imageProductId]);
+    const key = dbCheck.rows[0].image_url;
+    expect(key).toMatch(/^products\/[0-9a-f-]{36}\.png$/);
+    uploadedKeys.push(key);
+
+    // File benar-benar ada di disk di bawah uploads/products.
+    expect(fs.existsSync(path.join(storageService.UPLOAD_ROOT, key))).toBe(true);
+
+    // Respons list/detail juga mengekspos image_url publik.
+    const detail = await request(app).get(`/api/products/${imageProductId}`);
+    expect(detail.body.data.image_url).toBe(res.body.data.image_url);
+  });
+
+  it('rejects disallowed MIME -> 400 IMAGE_TYPE_NOT_ALLOWED', async () => {
+    const res = await request(app)
+      .post(`/api/admin/products/${imageProductId}/image`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .attach('image', Buffer.from('plain text'), { filename: 'evil.txt', contentType: 'text/plain' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('IMAGE_TYPE_NOT_ALLOWED');
+  });
+
+  it('rejects file larger than 5MB -> 413 IMAGE_TOO_LARGE', async () => {
+    const big = Buffer.alloc(MAX_IMAGE_SIZE + 1);
+    const res = await request(app)
+      .post(`/api/admin/products/${imageProductId}/image`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .attach('image', big, { filename: 'big.png', contentType: 'image/png' });
+
+    expect(res.status).toBe(413);
+    expect(res.body.code).toBe('IMAGE_TOO_LARGE');
+  });
+
+  it('returns 404 for unknown product id', async () => {
+    const res = await request(app)
+      .post('/api/admin/products/999999/image')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .attach('image', TINY_PNG, { filename: 'ghost.png', contentType: 'image/png' });
+
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('PRODUCT_NOT_FOUND');
+  });
+
+  it('replaces existing image and removes the old file', async () => {
+    // Ambil key lama dari DB.
+    const before = await db.query('SELECT image_url FROM products WHERE id = $1', [imageProductId]);
+    const oldKey = before.rows[0].image_url;
+    expect(oldKey).toBeTruthy();
+
+    const res = await request(app)
+      .post(`/api/admin/products/${imageProductId}/image`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .attach('image', TINY_PNG, { filename: 'new.png', contentType: 'image/png' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.image_url).not.toBe(`/uploads/products/${oldKey}`);
+
+    // File lama harus sudah terhapus; file baru harus ada.
+    expect(fs.existsSync(path.join(storageService.UPLOAD_ROOT, oldKey))).toBe(false);
+    const after = await db.query('SELECT image_url FROM products WHERE id = $1', [imageProductId]);
+    const newKey = after.rows[0].image_url;
+    expect(fs.existsSync(path.join(storageService.UPLOAD_ROOT, newKey))).toBe(true);
+    uploadedKeys.push(newKey);
+  });
+
+  it('deletes image -> 200, image_url null, file removed', async () => {
+    const before = await db.query('SELECT image_url FROM products WHERE id = $1', [imageProductId]);
+    const key = before.rows[0].image_url;
+    expect(key).toBeTruthy();
+
+    const res = await request(app)
+      .delete(`/api/admin/products/${imageProductId}/image`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.image_url).toBe(null);
+
+    const dbCheck = await db.query('SELECT image_url FROM products WHERE id = $1', [imageProductId]);
+    expect(dbCheck.rows[0].image_url).toBe(null);
+    expect(fs.existsSync(path.join(storageService.UPLOAD_ROOT, key))).toBe(false);
+  });
+
+  it('deletes image on product with no image -> 200 no-op', async () => {
+    const res = await request(app)
+      .delete(`/api/admin/products/${imageProductId}/image`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.image_url).toBe(null);
   });
 });

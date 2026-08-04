@@ -4,8 +4,26 @@
 const flashsaleService = require('./flashsale.service');
 const { AppError, ValidationError } = require('../../utils/CustomError');
 
+// Metode pembayaran valid sesuai CHECK constraint schema orders.payment_method.
+const VALID_PAYMENT_METHODS = ['BANK_TRANSFER', 'COD', 'QRIS'];
+
+// Field alamat pengiriman wajib + batas panjang (sesuai kolom orders).
+const SHIPPING_REQUIRED_FIELDS = [
+  { key: 'name', max: 100 },
+  { key: 'phone', max: 20 },
+  { key: 'address', max: null }, // TEXT
+  { key: 'city', max: 100 },
+  { key: 'province', max: 100 },
+  { key: 'postalCode', max: 20 },
+];
+
+// Validasi body POST /api/flashsale/checkout.
+// Mengembalikan dua kelompok error:
+//   * errors        → pelanggaran tipe dasar (productId/quantity) → 400 (pola existing).
+//   * shippingErrors → pelanggaran nilai shipping/paymentMethod → 422 (kontrak API).
 function validateCheckout(body = {}) {
   const errors = [];
+  const shippingErrors = [];
 
   const productId = body.productId;
   if (productId === undefined || productId === null || !Number.isInteger(Number(productId)) || Number(productId) <= 0) {
@@ -17,7 +35,52 @@ function validateCheckout(body = {}) {
     errors.push({ field: 'quantity', message: 'quantity must be an integer greater than or equal to 1' });
   }
 
-  return { errors, productId: Number(productId), quantity: Number(quantity) };
+  // --- shipping object ---
+  const rawShipping = body.shipping && typeof body.shipping === 'object' && !Array.isArray(body.shipping)
+    ? body.shipping
+    : {};
+  const shipping = {};
+
+  for (const { key, max } of SHIPPING_REQUIRED_FIELDS) {
+    const value = typeof rawShipping[key] === 'string' ? rawShipping[key].trim() : '';
+    if (!value) {
+      shippingErrors.push({ field: `shipping.${key}`, message: `shipping.${key} is required` });
+    } else if (max !== null && value.length > max) {
+      shippingErrors.push({ field: `shipping.${key}`, message: `shipping.${key} must be at most ${max} characters` });
+    } else {
+      shipping[key] = value;
+    }
+  }
+
+  // note opsional (TEXT).
+  const rawNote = rawShipping.note;
+  if (rawNote !== undefined && rawNote !== null && rawNote !== '') {
+    if (typeof rawNote !== 'string' || rawNote.length > 10000) {
+      shippingErrors.push({ field: 'shipping.note', message: 'shipping.note must be a string of at most 10000 characters' });
+    } else {
+      shipping.note = rawNote.trim();
+    }
+  } else {
+    shipping.note = null;
+  }
+
+  // --- paymentMethod ---
+  const paymentMethod = typeof body.paymentMethod === 'string' ? body.paymentMethod : '';
+  if (!VALID_PAYMENT_METHODS.includes(paymentMethod)) {
+    shippingErrors.push({
+      field: 'paymentMethod',
+      message: `paymentMethod must be one of: ${VALID_PAYMENT_METHODS.join(', ')}`,
+    });
+  }
+
+  return {
+    errors,
+    shippingErrors,
+    productId: Number(productId),
+    quantity: Number(quantity),
+    shipping,
+    paymentMethod,
+  };
 }
 
 // Validasi body POST /api/admin/flashsale/items.
@@ -93,11 +156,16 @@ const flashsaleController = {
   },
 
   checkout: async (req, res) => {
-    const { errors, productId, quantity } = validateCheckout(req.body);
+    const { errors, shippingErrors, productId, quantity, shipping, paymentMethod } = validateCheckout(req.body);
     if (errors.length > 0) {
+      // Pelanggaran tipe dasar (productId/quantity) — pola existing → 400.
       throw new ValidationError('Flash sale checkout validation failed', errors);
     }
-    const order = await flashsaleService.checkout(req.user.id, productId, quantity);
+    if (shippingErrors.length > 0) {
+      // Payload JSON valid tapi shipping/paymentMethod gagal aturan → 422 (kontrak API).
+      throw new AppError('Flash sale checkout validation failed', 422, 'VALIDATION_ERROR', shippingErrors);
+    }
+    const order = await flashsaleService.checkout(req.user.id, productId, quantity, shipping, paymentMethod);
     res.created(order, 'Flash sale purchase successful');
   },
 

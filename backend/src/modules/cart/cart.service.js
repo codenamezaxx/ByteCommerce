@@ -4,6 +4,7 @@
 // (typeof cartService.mergeGuestCart === 'function') aktif.
 const db = require('../../config/db');
 const { ConflictError, NotFoundError, ValidationError } = require('../../utils/CustomError');
+const storageService = require('../products/storage.service');
 
 class CartService {
   // Mencari cart pemilik (user ATAU guest — CHECK XOR di schema: persis satu owner).
@@ -85,9 +86,9 @@ class CartService {
   static async getCartItems(cartId) {
     // Harga efektif untuk display: COALESCE(flash_sale_price, price) bila flash sale.
     // NOTE: harga final checkout tetap ditentukan Stored Procedure saat transaksi.
-    // Kolom image di-ommit karena schema products belum punya image_url.
     const result = await db.query(
-      `SELECT ci.id, ci.product_id, p.name, p.price, p.flash_sale_price, p.is_flash_sale, ci.quantity,
+      `SELECT ci.id, ci.product_id, p.name, p.price, p.flash_sale_price, p.is_flash_sale,
+              p.image_url, ci.quantity,
               (CASE WHEN p.is_flash_sale AND p.flash_sale_price IS NOT NULL
                     THEN p.flash_sale_price ELSE p.price END) * ci.quantity AS subtotal
        FROM cart_items ci
@@ -104,6 +105,7 @@ class CartService {
       price: Number(row.price),
       flash_sale_price: row.flash_sale_price !== null ? Number(row.flash_sale_price) : null,
       is_flash_sale: row.is_flash_sale,
+      image_url: row.image_url ? storageService.getPublicPath(row.image_url) : null,
       quantity: row.quantity,
       subtotal: Number(row.subtotal),
     }));

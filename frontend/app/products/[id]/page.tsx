@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { productsApi, flashsaleApi, cartApi } from '@/lib/api';
 import { formatRupiah } from '@/lib/utils';
 import CountdownTimer from '@/components/CountdownTimer';
+import ProductImage from '@/components/ProductImage';
 import { PageSpinner } from '@/components/Spinner';
 
 function discountPercent(original: number, discounted: number): number {
@@ -108,7 +109,7 @@ export default function ProductDetailPage() {
         <div className="container">
           <div className="product-detail">
             <div className="product-gallery">
-              <div className="ph-img">Gambar Produk</div>
+              <ProductImage src={product.image_url} alt={product.name} />
             </div>
 
             <div className="product-info">

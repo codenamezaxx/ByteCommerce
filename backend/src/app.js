@@ -31,13 +31,15 @@ app.use((req, res, next) => {
 // --- Route modules ----------------------------------------------------------
 // Daftar route modules. Setiap modul mengekspos express.Router.
 const flashsaleRoutes = require('./modules/flashsale/flashsale.routes');
+const productsRoutes = require('./modules/products/products.routes');
 
 const routeModules = [
   { path: '/api/auth', router: require('./modules/auth/auth.routes') },
-  { path: '/api/products', router: require('./modules/products/products.routes') },
+  { path: '/api/products', router: productsRoutes.router },
   { path: '/api/cart', router: require('./modules/cart/cart.routes') },
   { path: '/api/flashsale', router: flashsaleRoutes.router },
   { path: '/api/admin/flashsale', router: flashsaleRoutes.adminRouter },
+  { path: '/api/admin/products', router: productsRoutes.adminRouter },
   { path: '/api/orders', router: require('./modules/orders/orders.routes') },
   { path: '/api/admin', router: require('./modules/admin/admin.routes') },
 ];
@@ -54,6 +56,13 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({ success: true, message: 'ByteCommerce API', data: { version: '0.1.0' } });
 });
+
+// --- Static: gambar produk --------------------------------------------------
+// Melayani file yang di-upload ke uploads/products lewat path /uploads/...
+// Root memakai storageService.UPLOAD_ROOT (env UPLOAD_DIR, default 'uploads').
+// Harus dipasang SEBELUM 404 handler.
+const storageService = require('./modules/products/storage.service');
+app.use('/uploads', express.static(storageService.UPLOAD_ROOT, { maxAge: '365d', immutable: true }));
 
 // --- 404 handler (setelah semua routes) -------------------------------------
 app.use((req, res) => {

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { productsApi, flashsaleApi } from '@/lib/api';
 import { formatRupiah } from '@/lib/utils';
 import CountdownTimer from '@/components/CountdownTimer';
+import ProductImage from '@/components/ProductImage';
 import { PageSpinner } from '@/components/Spinner';
 
 /* ------------------------------------------------------------------ */
@@ -17,6 +18,7 @@ interface Product {
   flash_price?: number;
   stock: number;
   category?: string;
+  image_url?: string | null;
   flash_sale?: boolean;
   is_flash_sale?: boolean;
   flash_sale_price?: number | null;
@@ -330,7 +332,7 @@ export default function HomePage() {
                 const pctOff = discountPercent(originalPrice, flashPrice);
                 return (
                   <Link key={p.id} href={`/products/${p.id}`} className="product-card">
-                    <div className="ph-img">Gambar Produk</div>
+                    <ProductImage src={p.image_url} alt={p.name} lazy />
                     <div className="product-card-body">
                       <div style={{display:'flex', alignItems:'center', gap:'0.35rem', marginBottom:'0.5rem', flexWrap:'wrap'}}>
                         <span className="badge badge-danger">FLASH SALE</span>
@@ -441,7 +443,7 @@ export default function HomePage() {
                   const pctOff = isFlash && flashPrice ? discountPercent(originalPrice, flashPrice) : 0;
                   return (
                     <Link key={p.id} href={`/products/${p.id}`} className="product-card">
-                      <div className="ph-img">Gambar Produk</div>
+                      <ProductImage src={p.image_url} alt={p.name} lazy />
                       <div className="product-card-body">
                         {isFlash && (
                           <div style={{display:'flex', alignItems:'center', gap:'0.35rem', marginBottom:'0.5rem', flexWrap:'wrap'}}>

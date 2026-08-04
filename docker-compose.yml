@@ -54,6 +54,10 @@ services:
     depends_on:
       postgres_db:
         condition: service_healthy
+    volumes:
+      # Gambar produk disimpan di named volume (bukan bind-mount host) agar
+      # data upload bertahan saat container diganti tanpa menumpuk di repo.
+      - uploads_data:/app/uploads
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
       interval: 10s
@@ -68,6 +72,8 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  uploads_data:
     driver: local
 
 # Bridge Network
