@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { productsApi, flashsaleApi } from '@/lib/api';
 import { formatRupiah } from '@/lib/utils';
 import CountdownTimer from '@/components/CountdownTimer';
 import { PageSpinner } from '@/components/Spinner';
 
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
 interface Product {
   id: number;
   name: string;
@@ -21,60 +24,187 @@ interface Product {
   description?: string;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Category card data                                                 */
+/* ------------------------------------------------------------------ */
+const CATEGORIES = [
+  {
+    label: 'Elektronik',
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="1.5" strokeLinecap="round">
+        <rect x="4" y="4" width="16" height="16" rx="2"/>
+        <line x1="8" y1="10" x2="16" y2="10"/>
+        <line x1="8" y1="14" x2="12" y2="14"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'Fashion',
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="1.5" strokeLinecap="round">
+        <path d="M6 7l6-4 6 4"/>
+        <path d="M5 8v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/>
+        <path d="M9 15h6"/>
+        <path d="M9 11h6"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'Aksesoris',
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="1.5" strokeLinecap="round">
+        <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/>
+        <line x1="12" y1="22" x2="12" y2="15.5"/>
+        <polyline points="22 8.5 12 15.5 2 8.5"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'Kesehatan',
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="1.5" strokeLinecap="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="16"/>
+        <line x1="8" y1="12" x2="16" y2="12"/>
+      </svg>
+    ),
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/*  Page                                                               */
+/* ------------------------------------------------------------------ */
 export default function HomePage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  /* ---- flash sale ---- */
   const [flashProducts, setFlashProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [flashSaleEnd, setFlashSaleEnd] = useState<Date | null>(null);
 
-  // Load flash sale products
+  /* ---- regular products (infinite scroll) ---- */
+  const [products, setProducts] = useState<Product[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const loadingRef = useRef(false);   // guard: prevent duplicate requests
+
+  /* ---- sentinel ref for infinite scroll ---- */
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  /* ================================================================
+     1. Flash sale
+     ================================================================ */
   useEffect(() => {
     (async () => {
       try {
         const res: any = await flashsaleApi.active();
-        const items = res?.data || res || [];
+        const items = res?.data?.products || res?.data || res || [];
         if (Array.isArray(items) && items.length > 0) {
           setFlashProducts(items);
-          // Find the earliest end time
-          const ends = items.map((p: any) => new Date(p.flash_sale_end || p.end_time || p.end_at)).filter((d: Date) => !isNaN(d.getTime()));
+          const ends = items
+            .map((p: any) => new Date(p.flash_sale_end || p.end_time || p.end_at))
+            .filter((d: Date) => !isNaN(d.getTime()));
           if (ends.length > 0) {
-            const earliest = new Date(Math.min(...ends.map(d => d.getTime())));
-            setFlashSaleEnd(earliest);
+            setFlashSaleEnd(new Date(Math.min(...ends.map(d => d.getTime()))));
           }
         }
       } catch { /* no flash sale active */ }
     })();
   }, []);
 
-  // Load regular products
-  const loadProducts = useCallback(async () => {
+  /* ================================================================
+     2. Regular products – fetch helper
+     ================================================================ */
+  const fetchProducts = useCallback(async (targetPage: number, query: string, append: boolean) => {
+    if (loadingRef.current) return;       // guard: already fetching
+    loadingRef.current = true;
     setLoading(true);
     try {
-      const res: any = await productsApi.list({ page, limit: 8, search: search || undefined });
+      const res: any = await productsApi.list({ page: targetPage, limit: 8, search: query || undefined });
       const data = res?.data || res;
-      setProducts(data?.products || data || []);
-      setTotalPages(data?.totalPages || 1);
+      const list: Product[] = data?.products || data || [];
+      const apiPages: number = data?.totalPages ?? 1;
+
+      if (append) {
+        setProducts(prev => [...prev, ...list]);
+      } else {
+        setProducts(list);
+      }
+      setHasMore(targetPage < apiPages);
     } catch { /* ignore */ }
     setLoading(false);
-  }, [page, search]);
+    loadingRef.current = false;
+  }, []);
 
-  useEffect(() => { loadProducts(); }, [loadProducts]);
+  /* Initial load + page change */
+  useEffect(() => {
+    fetchProducts(page, search, page > 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
+  /* ================================================================
+     3. Infinite scroll – IntersectionObserver
+     ================================================================ */
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMore && !loadingRef.current) {
+          setPage(prev => prev + 1);
+        }
+      },
+      { rootMargin: '200px' },
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, products.length]); // re-attach when list grows / hasMore changes
+
+  /* ================================================================
+     4. Search handler
+     ================================================================ */
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
-    loadProducts();
+    setProducts([]);
+    setHasMore(true);
+    // fetchProducts will fire via the page-change effect
+    // but page is already 1 so we force a fresh fetch:
+    loadingRef.current = false;
+    fetchProducts(1, search, false);
   };
 
+  /* ================================================================
+     5. Scroll-to handler for category cards
+     ================================================================ */
+  const scrollToProducts = (e: React.MouseEvent) => {
+    e.preventDefault();
+    document.getElementById('produk')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  /* ================================================================
+     JSX
+     ================================================================ */
   return (
     <>
-      {/* Hero */}
+      {/* ============================================================
+          HERO with background image + dark-mode-aware overlay
+          ============================================================ */}
       <section className="hero">
+        <div className="hero-bg">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1600&q=80"
+            alt=""
+            className="hero-bg-img"
+            loading="eager"
+          />
+          <div className="hero-bg-overlay" />
+        </div>
+
         <div className="hero-content">
-          <p className="eyebrow" style={{color:'#94A3B8', marginBottom:'0.75rem'}}>
+          <p className="eyebrow" style={{ color: '#94A3B8', marginBottom: '0.75rem' }}>
             FLASH SALE
             {flashSaleEnd ? '' : ' - SEGERA HADIR'}
           </p>
@@ -83,16 +213,45 @@ export default function HomePage() {
           {flashSaleEnd && (
             <>
               <CountdownTimer targetDate={flashSaleEnd} showLabels size="lg" />
-              <div style={{height:'1.5rem'}} />
+              <div style={{ height: '1.5rem' }} />
             </>
           )}
-          <a href="#produk" className="btn btn-primary btn-lg">Lihat Produk</a>
+          <a href="#produk" className="btn btn-primary btn-lg" onClick={scrollToProducts}>
+            Lihat Produk
+          </a>
         </div>
       </section>
 
-      {/* Flash Sale Products */}
+      {/* ============================================================
+          KATEGORI
+          ============================================================ */}
+      <section className="page">
+        <div className="container">
+          <p className="eyebrow">KATEGORI</p>
+          <h2>Jelajahi Kategori</h2>
+
+          <div className="category-grid">
+            {CATEGORIES.map(cat => (
+              <a
+                key={cat.label}
+                href="#produk"
+                className="card category-card"
+                onClick={scrollToProducts}
+              >
+                <div className="category-card-icon">{cat.icon}</div>
+                <h4>{cat.label}</h4>
+                <p className="text-muted category-card-count">Semua Produk</p>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================
+          PRODUK FLASH SALE
+          ============================================================ */}
       {flashProducts.length > 0 && (
-        <section className="page" id="produk" style={{paddingTop:0}}>
+        <section className="page" id="produk" style={{ paddingTop: 0 }}>
           <div className="container">
             <div className="section-header">
               <h2>Produk Flash Sale</h2>
@@ -108,20 +267,24 @@ export default function HomePage() {
                   <Link key={p.id} href={`/products/${p.id}`} className="product-card">
                     <div className="ph-img">Gambar Produk</div>
                     <div className="product-card-body">
-                      <span className="badge badge-danger" style={{marginBottom:'0.5rem'}}>FLASH SALE</span>
+                      <span className="badge badge-danger" style={{ marginBottom: '0.5rem' }}>FLASH SALE</span>
                       <h3>{p.name}</h3>
                       <div className="product-meta">
                         <div>
-                          <span className="product-price mono" style={{color:'var(--danger)'}}>{formatRupiah(flashPrice)}</span>
-                          {originalPrice && <span className="price-original">{formatRupiah(originalPrice)}</span>}
+                          <span className="product-price mono" style={{ color: 'var(--danger)' }}>
+                            {formatRupiah(flashPrice)}
+                          </span>
+                          {originalPrice && (
+                            <span className="price-original">{formatRupiah(originalPrice)}</span>
+                          )}
                         </div>
                       </div>
                       {flashStock !== undefined && maxStock > 0 && (
                         <>
-                          <div className="stock-bar" style={{marginTop:'0.75rem'}}>
+                          <div className="stock-bar" style={{ marginTop: '0.75rem' }}>
                             <div
                               className={`stock-bar-fill ${stockPct < 30 ? 'danger' : stockPct < 60 ? 'warning' : ''}`}
-                              style={{width:`${stockPct}%`}}
+                              style={{ width: `${stockPct}%` }}
                             />
                           </div>
                           <p className="stock-text">Sisa {flashStock} dari {maxStock}</p>
@@ -136,13 +299,19 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Regular Products */}
-      <section className="page" style={{paddingTop: flashProducts.length > 0 ? 0 : undefined}} id={flashProducts.length > 0 ? undefined : 'produk'}>
+      {/* ============================================================
+          PRODUK REKOMENDASI – infinite scroll
+          ============================================================ */}
+      <section
+        className="page"
+        style={{ paddingTop: flashProducts.length > 0 ? 0 : undefined }}
+        id={flashProducts.length > 0 ? undefined : 'produk'}
+      >
         <div className="container">
           <p className="eyebrow">PRODUK PILIHAN</p>
-          <h2 style={{marginBottom:'1.5rem'}}>Rekomendasi Untukmu</h2>
+          <h2 style={{ marginBottom: '1.5rem' }}>Rekomendasi Untukmu</h2>
 
-          {/* Search & Filter */}
+          {/* Search */}
           <form className="filter-bar" onSubmit={handleSearch}>
             <input
               type="text"
@@ -155,7 +324,8 @@ export default function HomePage() {
             <button type="submit" className="btn btn-outline">Cari</button>
           </form>
 
-          {loading ? (
+          {/* Initial loading spinner (only before first page loads) */}
+          {loading && products.length === 0 ? (
             <PageSpinner />
           ) : products.length === 0 ? (
             <div className="empty-state">
@@ -171,7 +341,9 @@ export default function HomePage() {
                     <Link key={p.id} href={`/products/${p.id}`} className="product-card">
                       <div className="ph-img">Gambar Produk</div>
                       <div className="product-card-body">
-                        {p.flash_sale && <span className="badge badge-danger" style={{marginBottom:'0.5rem'}}>FLASH SALE</span>}
+                        {p.flash_sale && (
+                          <span className="badge badge-danger" style={{ marginBottom: '0.5rem' }}>FLASH SALE</span>
+                        )}
                         <h3>{p.name}</h3>
                         <div className="product-meta">
                           <span className="product-price mono">{formatRupiah(price)}</span>
@@ -185,21 +357,21 @@ export default function HomePage() {
                 })}
               </div>
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="pagination">
-                  <button className="pagination-btn" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
-                    &lsaquo;
-                  </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                    <button key={p} className={`pagination-btn ${p === page ? 'active' : ''}`} onClick={() => setPage(p)}>
-                      {p}
-                    </button>
-                  ))}
-                  <button className="pagination-btn" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
-                    &rsaquo;
-                  </button>
+              {/* Sentinel for infinite scroll */}
+              <div ref={sentinelRef} style={{ height: 1 }} />
+
+              {/* Loading more indicator (small, not full page) */}
+              {loading && products.length > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem 0' }}>
+                  <div className="spinner" />
                 </div>
+              )}
+
+              {/* End of list */}
+              {!hasMore && products.length > 0 && (
+                <p style={{ textAlign: 'center', color: 'var(--muted)', padding: '1.5rem 0 0' }}>
+                  Semua produk sudah ditampilkan.
+                </p>
               )}
             </>
           )}

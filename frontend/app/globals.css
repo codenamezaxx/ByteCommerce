@@ -706,13 +706,62 @@ tbody tr:hover { background: var(--table-hover); }
 
 /* ----- Hero ----- */
 .hero {
-  background: #0F172A;
+  position: relative;
   color: #fff;
-  padding: 4rem 1.25rem;
+  padding: 5rem 1.25rem 4rem;
   text-align: center;
+  overflow: hidden;
+  /* Fallback: solid colour + gradient so hero is never blank */
+  background: #0F172A;
+  background-image: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+}
+
+/* Background image wrapper – behind everything */
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.hero-bg-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  /* Light mode: bright image, slight warm tint */
+  filter: brightness(0.45) saturate(1.1);
+}
+
+/* Gradient overlay – always rendered, adapts to theme */
+.hero-bg-overlay {
+  position: absolute;
+  inset: 0;
+  /* Light mode: semi-transparent dark overlay for text contrast */
+  background: linear-gradient(
+    180deg,
+    rgba(15,23,42,.55) 0%,
+    rgba(15,23,42,.75) 60%,
+    rgba(15,23,42,.88) 100%
+  );
+}
+
+/* Dark mode: darken image further + heavier overlay */
+:root[data-theme="dark"] .hero-bg-img {
+  filter: brightness(0.25) saturate(0.8);
+}
+
+:root[data-theme="dark"] .hero-bg-overlay {
+  background: linear-gradient(
+    180deg,
+    rgba(2,6,23,.7) 0%,
+    rgba(15,23,42,.82) 60%,
+    rgba(15,23,42,.95) 100%
+  );
 }
 
 .hero-content {
+  position: relative;
+  z-index: 1;
   max-width: 640px;
   margin: 0 auto;
 }
@@ -740,6 +789,41 @@ tbody tr:hover { background: var(--table-hover); }
   background: rgba(255,255,255,.1);
   padding: 0.5rem 0.75rem;
   border-radius: var(--radius-sm);
+}
+
+/* ----- Category Grid ----- */
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.category-card {
+  text-align: center;
+  text-decoration: none;
+  color: var(--fg);
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.category-card:hover {
+  transform: translateY(-2px);
+}
+
+.category-card-icon {
+  margin-bottom: 0.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.category-card h4 {
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+}
+
+.category-card-count {
+  font-size: 0.8rem;
 }
 
 /* ----- Product Detail ----- */
@@ -1003,7 +1087,9 @@ tbody tr:hover { background: var(--table-hover); }
 
   .cart-item .ph-img { width: 60px; height: 60px; }
 
-  .hero { padding: 2.5rem 1rem; }
+  .hero { padding: 3.5rem 1rem 2.5rem; }
+
+  .category-grid { grid-template-columns: repeat(2, 1fr); }
 
   .footer-inner { flex-direction: column; gap: 0.5rem; text-align: center; }
 
