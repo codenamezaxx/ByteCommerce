@@ -67,6 +67,7 @@ jobs:
         working-directory: backend
         env:
           NODE_ENV: test
+          PORT: 5000
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/bytecommerce_test
           REDIS_URL: redis://localhost:6379
           JWT_SECRET: test_secret_only_for_ci
