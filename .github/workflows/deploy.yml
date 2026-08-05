@@ -64,7 +64,7 @@ jobs:
         run: npm ci
 
       - name: Initialize test database schema
-        run: psql -U test_user -d bytecommerce_test -f database/init.sql
+        run: psql -h localhost -U test_user -d bytecommerce_test -f database/init.sql
         env:
           PGPASSWORD: test_password
 
