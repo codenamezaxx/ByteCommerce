@@ -68,6 +68,11 @@ jobs:
         env:
           PGPASSWORD: test_password
 
+      - name: Seed test database
+        run: psql -h localhost -U test_user -d bytecommerce_test -f database/seeds.sql
+        env:
+          PGPASSWORD: test_password
+
       - name: Run tests
         working-directory: backend
         env:
