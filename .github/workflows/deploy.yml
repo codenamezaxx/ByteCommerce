@@ -63,6 +63,11 @@ jobs:
         working-directory: backend
         run: npm ci
 
+      - name: Initialize test database schema
+        run: psql -U test_user -d bytecommerce_test -f database/init.sql
+        env:
+          PGPASSWORD: test_password
+
       - name: Run tests
         working-directory: backend
         env:
