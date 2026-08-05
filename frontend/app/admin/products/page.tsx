@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { productsApi, adminApi } from '@/lib/api';
 import { formatRupiah } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import ProductImage from '@/components/ProductImage';
-import { PageSpinner } from '@/components/Spinner';
+import PhantomSkeleton from '@/components/PhantomSkeleton';
 
 const SUGGESTED_CATEGORIES = ['Elektronik', 'Aksesoris', 'Fashion', 'Kesehatan'];
 const ACCEPTED_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -16,7 +15,6 @@ const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 export default function AdminProductsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -174,177 +172,191 @@ export default function AdminProductsPage() {
     } catch { /* ignore */ }
   };
 
-  if (authLoading || loading) return <PageSpinner />;
+  if (authLoading || loading) {
+    return (
+      <>
+        {/* Header bar placeholder */}
+        <PhantomSkeleton loading animation="shimmer" reveal={0.3} loading-label="Memuat produk">
+          <section className="section-header" style={{ marginBottom: '2rem' }} aria-hidden="true">
+            <div className="ph-skeleton-block" style={{ height: '1.75rem', width: '14rem' }} />
+            <div className="ph-skeleton-block" style={{ height: '2.4rem', width: '9rem', borderRadius: 'var(--radius-md)' }} />
+          </section>
+        </PhantomSkeleton>
+
+        {/* Table: count={5} replicates the single template row to mirror the
+            product table body (Gambar / Nama / Kategori / Harga / Stok / Aksi) */}
+        <div className="table-wrap">
+          <PhantomSkeleton
+            loading
+            animation="shimmer"
+            reveal={0.3}
+            stagger={0.03}
+            count={5}
+            count-gap={12}
+            loading-label="Memuat produk"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', padding: '0.85rem 1rem' }} aria-hidden="true">
+              <div className="ph-skeleton-block" style={{ width: 48, height: 48, borderRadius: 'var(--radius-sm)', flexShrink: 0 }} />
+              <div className="ph-skeleton-block" style={{ width: '26%', height: '1rem' }} />
+              <div className="ph-skeleton-block" style={{ width: '12%', height: '0.9rem' }} />
+              <div className="ph-skeleton-block" style={{ width: '18%', height: '1rem' }} />
+              <div className="ph-skeleton-block" style={{ width: '8%', height: '1rem' }} />
+              <div className="ph-skeleton-block" style={{ width: '14%', height: '1rem' }} />
+            </div>
+          </PhantomSkeleton>
+        </div>
+      </>
+    );
+  }
   if (!user || user.role !== 'admin') return null;
 
   return (
-    <div className="admin-layout">
-      <aside className="sidebar">
-        <div className="sidebar-brand">
-          <Link href="/" className="navbar-brand" style={{display:'flex', alignItems:'center'}}>
-            Byte<span style={{color:'var(--accent)'}}>Commerce</span>
-            <span className="admin-suffix">Admin</span>
-          </Link>
-        </div>
-        <nav>
-          <ul className="sidebar-nav">
-            <li><Link href="/admin" className="sidebar-link">Dashboard</Link></li>
-            <li><Link href="/admin/products" className={`sidebar-link ${pathname === '/admin/products' ? 'active' : ''}`}>Produk</Link></li>
-            <li><Link href="/admin/flashsale" className="sidebar-link">Flash Sale</Link></li>
-          </ul>
-        </nav>
-        <div className="sidebar-divider"></div>
-        <div style={{padding:'0 0.75rem'}}><Link href="/" className="btn btn-ghost btn-block" style={{fontSize:'0.85rem'}}>Kembali ke Toko</Link></div>
-        <div className="sidebar-footer"></div>
-      </aside>
+    <>
+      <section className="section-header" style={{marginBottom:'2rem'}}>
+        <h1>Manajemen Produk</h1>
+        <button className="btn btn-primary" onClick={() => openModal()}>+ Tambah Produk</button>
+      </section>
 
-      <main className="admin-main">
-        <section className="section-header" style={{marginBottom:'2rem'}}>
-          <h1>Manajemen Produk</h1>
-          <button className="btn btn-primary" onClick={() => openModal()}>+ Tambah Produk</button>
-        </section>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Gambar</th><th>Nama Produk</th><th>Kategori</th><th>Harga</th><th>Stok</th><th>Aksi</th></tr>
+          </thead>
+          <tbody>
+            {products.map(p => (
+              <tr key={p.id}>
+                <td>
+                  <div style={{width:48, height:48, borderRadius:'var(--radius-sm)', overflow:'hidden', background:'var(--ph-bg)'}}>
+                    <ProductImage src={p.image_url} alt={p.name} lazy />
+                  </div>
+                </td>
+                <td><strong>{p.name}</strong></td>
+                <td>
+                  {p.category ? (
+                    <span className="badge badge-neutral">{p.category}</span>
+                  ) : (
+                    <span className="text-muted" style={{fontSize:'0.82rem'}}>-</span>
+                  )}
+                </td>
+                <td className="mono">{formatRupiah(p.price)}</td>
+                <td className="mono">{p.stock}</td>
+                <td>
+                  <button className="btn btn-ghost btn-sm" onClick={() => openModal(p)}>Edit</button>
+                  <button className="btn btn-ghost btn-sm" style={{color:'var(--danger)'}} onClick={() => handleDelete(p.id)}>Hapus</button>
+                </td>
+              </tr>
+            ))}
+            {products.length === 0 && <tr><td colSpan={6} style={{textAlign:'center', padding:'2rem', color:'var(--muted)'}}>Belum ada produk</td></tr>}
+          </tbody>
+        </table>
+      </div>
 
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Gambar</th><th>Nama Produk</th><th>Kategori</th><th>Harga</th><th>Stok</th><th>Aksi</th></tr>
-            </thead>
-            <tbody>
-              {products.map(p => (
-                <tr key={p.id}>
-                  <td>
-                    <div style={{width:48, height:48, borderRadius:'var(--radius-sm)', overflow:'hidden', background:'var(--ph-bg)'}}>
-                      <ProductImage src={p.image_url} alt={p.name} lazy />
-                    </div>
-                  </td>
-                  <td><strong>{p.name}</strong></td>
-                  <td>
-                    {p.category ? (
-                      <span className="badge badge-neutral">{p.category}</span>
-                    ) : (
-                      <span className="text-muted" style={{fontSize:'0.82rem'}}>-</span>
-                    )}
-                  </td>
-                  <td className="mono">{formatRupiah(p.price)}</td>
-                  <td className="mono">{p.stock}</td>
-                  <td>
-                    <button className="btn btn-ghost btn-sm" onClick={() => openModal(p)}>Edit</button>
-                    <button className="btn btn-ghost btn-sm" style={{color:'var(--danger)'}} onClick={() => handleDelete(p.id)}>Hapus</button>
-                  </td>
-                </tr>
-              ))}
-              {products.length === 0 && <tr><td colSpan={6} style={{textAlign:'center', padding:'2rem', color:'var(--muted)'}}>Belum ada produk</td></tr>}
-            </tbody>
-          </table>
-        </div>
-
-        {showModal && (
-          <div className="modal-overlay open">
-            <div className="modal-content" style={{maxWidth:560}}>
-              <div className="modal-header">
-                <h4 style={{margin:0}}>{editingProduct ? 'Edit Produk' : 'Tambah Produk'}</h4>
-                <button className="modal-close" onClick={closeModal}>x</button>
+      {showModal && (
+        <div className="modal-overlay open">
+          <div className="modal-content" style={{maxWidth:560}}>
+            <div className="modal-header">
+              <h4 style={{margin:0}}>{editingProduct ? 'Edit Produk' : 'Tambah Produk'}</h4>
+              <button className="modal-close" onClick={closeModal}>x</button>
+            </div>
+            {formError && <div className="toast toast-error mb-2">{formError}</div>}
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label className="form-label">Nama Produk</label>
+                <input className="form-input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
               </div>
-              {formError && <div className="toast toast-error mb-2">{formError}</div>}
-              <form onSubmit={handleSubmit}>
-                <div className="form-group">
-                  <label className="form-label">Nama Produk</label>
-                  <input className="form-input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Kategori</label>
-                  <input
-                    className="form-input"
-                    value={form.category}
-                    onChange={e => setForm({...form, category: e.target.value})}
-                    list="category-list"
-                    placeholder="Pilih atau ketik kategori"
-                  />
-                  <datalist id="category-list">
-                    {SUGGESTED_CATEGORIES.map(cat => (
+              <div className="form-group">
+                <label className="form-label">Kategori</label>
+                <input
+                  className="form-input"
+                  value={form.category}
+                  onChange={e => setForm({...form, category: e.target.value})}
+                  list="category-list"
+                  placeholder="Pilih atau ketik kategori"
+                />
+                <datalist id="category-list">
+                  {SUGGESTED_CATEGORIES.map(cat => (
+                    <option key={cat} value={cat} />
+                  ))}
+                  {existingCategories
+                    .filter(cat => !SUGGESTED_CATEGORIES.includes(cat))
+                    .map(cat => (
                       <option key={cat} value={cat} />
                     ))}
-                    {existingCategories
-                      .filter(cat => !SUGGESTED_CATEGORIES.includes(cat))
-                      .map(cat => (
-                        <option key={cat} value={cat} />
-                      ))}
-                  </datalist>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Harga (Rp)</label>
-                  <input className="form-input" type="number" value={form.price} onChange={e => setForm({...form, price: e.target.value})} required />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Stok</label>
-                  <input className="form-input" type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Deskripsi</label>
-                  <textarea className="form-input" rows={3} value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
-                </div>
+                </datalist>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Harga (Rp)</label>
+                <input className="form-input" type="number" value={form.price} onChange={e => setForm({...form, price: e.target.value})} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Stok</label>
+                <input className="form-input" type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Deskripsi</label>
+                <textarea className="form-input" rows={3} value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
+              </div>
 
-                {/* ---- Image Upload ---- */}
-                <div className="form-group">
-                  <label className="form-label">Gambar Produk</label>
+              {/* ---- Image Upload ---- */}
+              <div className="form-group">
+                <label className="form-label">Gambar Produk</label>
 
-                  {/* Current image (edit mode) */}
-                  {editingProduct?.image_url && !removeImage && !imagePreview && (
-                    <div style={{marginBottom:'0.75rem'}}>
-                      <div style={{width:120, height:120, borderRadius:'var(--radius-sm)', overflow:'hidden', background:'var(--ph-bg)', border:'1px solid var(--border)'}}>
-                        <ProductImage src={editingProduct.image_url} alt={editingProduct.name} />
-                      </div>
-                      <button type="button" className="btn btn-ghost btn-sm" style={{color:'var(--danger)', marginTop:'0.35rem'}} onClick={handleRemoveImage}>
-                        Hapus Gambar
-                      </button>
+                {/* Current image (edit mode) */}
+                {editingProduct?.image_url && !removeImage && !imagePreview && (
+                  <div style={{marginBottom:'0.75rem'}}>
+                    <div style={{width:120, height:120, borderRadius:'var(--radius-sm)', overflow:'hidden', background:'var(--ph-bg)', border:'1px solid var(--border)'}}>
+                      <ProductImage src={editingProduct.image_url} alt={editingProduct.name} />
                     </div>
-                  )}
+                    <button type="button" className="btn btn-ghost btn-sm" style={{color:'var(--danger)', marginTop:'0.35rem'}} onClick={handleRemoveImage}>
+                      Hapus Gambar
+                    </button>
+                  </div>
+                )}
 
-                  {/* New image preview */}
-                  {imagePreview && (
-                    <div style={{marginBottom:'0.75rem'}}>
-                      <div style={{width:120, height:120, borderRadius:'var(--radius-sm)', overflow:'hidden', background:'var(--ph-bg)', border:'1px solid var(--border)'}}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={imagePreview} alt="Preview" style={{width:'100%', height:'100%', objectFit:'cover', display:'block'}} />
-                      </div>
-                      <button type="button" className="btn btn-ghost btn-sm" style={{color:'var(--danger)', marginTop:'0.35rem'}} onClick={handleRemoveImage}>
-                        Batal
-                      </button>
+                {/* New image preview */}
+                {imagePreview && (
+                  <div style={{marginBottom:'0.75rem'}}>
+                    <div style={{width:120, height:120, borderRadius:'var(--radius-sm)', overflow:'hidden', background:'var(--ph-bg)', border:'1px solid var(--border)'}}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={imagePreview} alt="Preview" style={{width:'100%', height:'100%', objectFit:'cover', display:'block'}} />
                     </div>
-                  )}
+                    <button type="button" className="btn btn-ghost btn-sm" style={{color:'var(--danger)', marginTop:'0.35rem'}} onClick={handleRemoveImage}>
+                      Batal
+                    </button>
+                  </div>
+                )}
 
-                  {/* Removed state */}
-                  {removeImage && editingProduct?.image_url && !imagePreview && (
-                    <p style={{fontSize:'0.85rem', color:'var(--danger)', marginBottom:'0.5rem'}}>
-                      Gambar akan dihapus saat disimpan.
-                    </p>
-                  )}
-
-                  {/* File input */}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={handleFileSelect}
-                    style={{fontSize:'0.85rem'}}
-                  />
-                  <p className="text-muted" style={{fontSize:'0.78rem', marginTop:'0.25rem'}}>
-                    Format: JPG, PNG, WebP. Maksimal 5MB.
+                {/* Removed state */}
+                {removeImage && editingProduct?.image_url && !imagePreview && (
+                  <p style={{fontSize:'0.85rem', color:'var(--danger)', marginBottom:'0.5rem'}}>
+                    Gambar akan dihapus saat disimpan.
                   </p>
-                </div>
+                )}
 
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-ghost" onClick={closeModal}>Batal</button>
-                  <button type="submit" className={`btn btn-primary ${saving ? 'loading' : ''}`} disabled={saving}>
-                    <span className="spinner"></span>
-                    <span className="btn-text">Simpan</span>
-                  </button>
-                </div>
-              </form>
-            </div>
+                {/* File input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleFileSelect}
+                  style={{fontSize:'0.85rem'}}
+                />
+                <p className="text-muted" style={{fontSize:'0.78rem', marginTop:'0.25rem'}}>
+                  Format: JPG, PNG, WebP. Maksimal 5MB.
+                </p>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn btn-ghost" onClick={closeModal}>Batal</button>
+                <button type="submit" className={`btn btn-primary ${saving ? 'loading' : ''}`} disabled={saving}>
+                  <span className="spinner"></span>
+                  <span className="btn-text">Simpan</span>
+                </button>
+              </div>
+            </form>
           </div>
-        )}
-      </main>
-    </div>
+        </div>
+      )}
+    </>
   );
 }

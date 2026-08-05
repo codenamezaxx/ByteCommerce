@@ -1,0 +1,95 @@
+# =============================================================
+# ByteCommerce — Production Docker Compose (P10.3)
+#
+# Opsi self-managed deployment di VPS (alternatif Render Blueprint).
+# Postgres & Redis TIDAK mengekspos port ke host.
+#
+# Cara pakai:
+#   cp .env.production.example .env   # lalu isi nilai asli
+#   docker compose -f docker-compose.prod.yml up -d --build
+# =============================================================
+
+name: bytecommerce-prod
+
+services:
+  # ---------- PostgreSQL 16 ----------
+  postgres_db:
+    image: postgres:16-alpine
+    container_name: bytecommerce_prod_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bytecommerce_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD di .env}
+      POSTGRES_DB: ${POSTGRES_DB:-bytecommerce_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./database/seeds.sql:/docker-entrypoint-initdb.d/seeds.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bytecommerce_user} -d ${POSTGRES_DB:-bytecommerce_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - prod_net
+
+  # ---------- Redis 7 (dengan password) ----------
+  redis_cache:
+    image: redis:7-alpine
+    container_name: bytecommerce_prod_redis
+    restart: always
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?Set REDIS_PASSWORD di .env}"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?Set REDIS_PASSWORD di .env}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - prod_net
+
+  # ---------- Backend API ----------
+  backend_api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bytecommerce_prod_backend
+    restart: always
+    ports:
+      - "${BACKEND_PORT:-5000}:5000"
+    environment:
+      PORT: 5000
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bytecommerce_user}:${POSTGRES_PASSWORD}@postgres_db:5432/${POSTGRES_DB:-bytecommerce_db}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis_cache:6379
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET di .env}
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      redis_cache:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - prod_net
+
+# ---------- Named Volumes ----------
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  uploads_data:
+    driver: local
+
+# ---------- Network ----------
+networks:
+  prod_net:
+    driver: bridge

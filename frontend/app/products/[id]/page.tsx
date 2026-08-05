@@ -7,7 +7,7 @@ import { productsApi, flashsaleApi, cartApi } from '@/lib/api';
 import { formatRupiah } from '@/lib/utils';
 import CountdownTimer from '@/components/CountdownTimer';
 import ProductImage from '@/components/ProductImage';
-import { PageSpinner } from '@/components/Spinner';
+import PhantomSkeleton from '@/components/PhantomSkeleton';
 
 function discountPercent(original: number, discounted: number): number {
   if (!original || original <= 0 || !discounted || discounted >= original) return 0;
@@ -54,7 +54,44 @@ export default function ProductDetailPage() {
     setAddingToCart(false);
   };
 
-  if (loading) return <PageSpinner />;
+  if (loading) {
+    return (
+      <>
+        {/* Breadcrumb */}
+        <div className="container">
+          <nav className="breadcrumb" aria-label="Breadcrumb">
+            <span className="ph-skeleton-block" style={{ display: 'inline-block', height: '0.85rem', width: '16rem' }} />
+          </nav>
+        </div>
+
+        {/* Product Detail skeleton */}
+        <section className="page">
+          <div className="container">
+            <PhantomSkeleton loading animation="shimmer" reveal={0.3} loading-label="Memuat detail produk">
+              <div className="product-detail">
+                <div className="product-gallery">
+                  <div className="ph-img" />
+                </div>
+
+                <div className="product-info">
+                  <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '8rem', marginBottom: '0.75rem' }} />
+                  <div className="ph-skeleton-block" style={{ height: '0.82rem', width: '6rem', marginBottom: '0.5rem' }} />
+                  <div className="ph-skeleton-block" style={{ height: '1.6rem', width: '70%', marginBottom: '1rem' }} />
+                  <div className="ph-skeleton-block" style={{ height: '1.75rem', width: '10rem', marginBottom: '1.25rem' }} />
+                  <div className="stock-bar" style={{ marginBottom: '0.5rem' }} />
+                  <div className="ph-skeleton-block" style={{ height: '0.8rem', width: '40%', marginBottom: '1.5rem' }} />
+                  <div className="ph-skeleton-block" style={{ height: '0.95rem', width: '100%', marginBottom: '0.5rem' }} />
+                  <div className="ph-skeleton-block" style={{ height: '0.95rem', width: '90%', marginBottom: '1.5rem' }} />
+                  <div className="ph-skeleton-block" style={{ height: '2.8rem', width: '100%', marginBottom: '1.25rem' }} />
+                  <div className="ph-skeleton-block" style={{ height: '0.85rem', width: '50%' }} />
+                </div>
+              </div>
+            </PhantomSkeleton>
+          </div>
+        </section>
+      </>
+    );
+  }
   if (!product) {
     return (
       <div className="page">

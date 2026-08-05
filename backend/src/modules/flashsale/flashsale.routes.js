@@ -18,6 +18,7 @@ const adminRouter = express.Router();
 adminRouter.post('/warmup', authenticate, requireAdmin, asyncWrapper(flashsaleController.warmup));
 adminRouter.post('/killswitch', authenticate, requireAdmin, asyncWrapper(flashsaleController.killswitch));
 // Kelola item flash sale (set harga+kuota / hapus dari program flash sale).
+adminRouter.post('/start', authenticate, requireAdmin, asyncWrapper(flashsaleController.start));
 adminRouter.post('/items', authenticate, requireAdmin, asyncWrapper(flashsaleController.setFlashSaleItem));
 adminRouter.delete('/items/:productId', authenticate, requireAdmin, asyncWrapper(flashsaleController.removeFlashSaleItem));
 

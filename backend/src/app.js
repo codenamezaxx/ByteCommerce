@@ -41,6 +41,7 @@ const routeModules = [
   { path: '/api/admin/flashsale', router: flashsaleRoutes.adminRouter },
   { path: '/api/admin/products', router: productsRoutes.adminRouter },
   { path: '/api/orders', router: require('./modules/orders/orders.routes') },
+  { path: '/api/profile', router: require('./modules/user-profiles/user-profiles.routes') },
   { path: '/api/admin', router: require('./modules/admin/admin.routes') },
 ];
 

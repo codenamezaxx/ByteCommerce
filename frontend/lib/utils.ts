@@ -86,3 +86,19 @@ export function calcTimeLeft(targetDate: Date) {
 export function pad(n: number): string {
   return String(n).padStart(2, '0');
 }
+
+export function formatInvoiceId(order: { id?: string | number; created_at?: string; createdAt?: string }): string {
+  const id = order.id ?? 0;
+  const padded = String(id).padStart(4, '0');
+  const dateStr = order.created_at || order.createdAt;
+  if (dateStr) {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `INV/BC/${yyyy}${mm}${dd}/${padded}`;
+    }
+  }
+  return `INV/BC/${padded}`;
+}

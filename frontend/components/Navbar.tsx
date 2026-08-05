@@ -1,39 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { cartApi } from '@/lib/api';
-
-function SunIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="5"/>
-      <line x1="12" y1="1" x2="12" y2="3"/>
-      <line x1="12" y1="21" x2="12" y2="23"/>
-      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-      <line x1="1" y1="12" x2="3" y2="12"/>
-      <line x1="21" y1="12" x2="23" y2="12"/>
-      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-    </svg>
-  );
-}
-
-function MoonIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-    </svg>
-  );
-}
+import { CATEGORIES } from '@/lib/categories';
+import { Sun, Moon, User, ChevronDown, ShoppingCart, LogOut, Menu, X } from 'lucide-react';
 
 function useTheme() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-  // Read from localStorage on mount (only runs on client)
   useEffect(() => {
     try {
       const stored = localStorage.getItem('theme');
@@ -41,8 +18,6 @@ function useTheme() {
     } catch { /* SSR guard */ }
   }, []);
 
-  // Keep <html> attribute + localStorage in sync with state.
-  // Side effects live outside the setState updater (which must stay pure).
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     try { localStorage.setItem('theme', theme); } catch { /* ignore */ }
@@ -59,8 +34,16 @@ export default function Navbar() {
   const { user, loading, logout } = useAuth();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const { theme, toggleTheme } = useTheme();
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [produkDropdownOpen, setProdukDropdownOpen] = useState(false);
+  const [mobileSubmenuOpen, setMobileSubmenuOpen] = useState(false);
+  const produkDropdownRef = useRef<HTMLLIElement>(null);
+  const produkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const produkHoverRef = useRef(false);
+  const router = useRouter();
 
   useEffect(() => {
     (async () => {
@@ -72,10 +55,44 @@ export default function Navbar() {
     })();
   }, []);
 
-  // Close mobile menu on route change
+  // Close mobile menu + dropdown on route change
   useEffect(() => {
     setMobileOpen(false);
+    setDropdownOpen(false);
+    setProdukDropdownOpen(false);
+    setMobileSubmenuOpen(false);
   }, [pathname]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [dropdownOpen]);
+
+  // Close produk dropdown on outside click
+  useEffect(() => {
+    if (!produkDropdownOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (produkDropdownRef.current && !produkDropdownRef.current.contains(e.target as Node)) {
+        setProdukDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [produkDropdownOpen]);
+
+  // Cleanup produk dropdown timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (produkTimeoutRef.current) clearTimeout(produkTimeoutRef.current);
+    };
+  }, []);
 
   // Listen for cart updates via custom event
   useEffect(() => {
@@ -112,16 +129,62 @@ export default function Navbar() {
             <ul className="navbar-links">
               <li><Link href="/" style={{color: pathname === '/' ? 'var(--fg)' : undefined}}>Beranda</Link></li>
               <li><Link href="/?flash_sale=1">Flash Sale</Link></li>
+              <li
+                className={`navbar-dropdown${produkDropdownOpen ? ' open' : ''}`}
+                ref={produkDropdownRef}
+                onMouseEnter={() => {
+                  produkHoverRef.current = true;
+                  if (produkTimeoutRef.current) clearTimeout(produkTimeoutRef.current);
+                  setProdukDropdownOpen(true);
+                }}
+                onMouseLeave={() => {
+                  produkHoverRef.current = false;
+                  produkTimeoutRef.current = setTimeout(() => setProdukDropdownOpen(false), 150);
+                }}
+              >
+                <button
+                  className="navbar-dropdown-trigger"
+                  onClick={() => {
+                    if (!produkHoverRef.current) setProdukDropdownOpen(prev => !prev);
+                  }}
+                  aria-expanded={produkDropdownOpen}
+                  aria-haspopup="true"
+                >
+                  Produk <ChevronDown size={12} strokeWidth={2.5} />
+                </button>
+                {produkDropdownOpen && (
+                  <div className="navbar-dropdown-menu">
+                    <button
+                      className="navbar-dropdown-item"
+                      onClick={() => {
+                        setProdukDropdownOpen(false);
+                        router.push('/?scroll=rekomendasi');
+                      }}
+                    >
+                      Produk Rekomendasi
+                    </button>
+                    {CATEGORIES.map(cat => (
+                      <button
+                        key={cat.label}
+                        className="navbar-dropdown-item"
+                        onClick={() => {
+                          setProdukDropdownOpen(false);
+                          router.push(`/?category=${encodeURIComponent(cat.label)}&scroll=rekomendasi`);
+                        }}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </li>
             </ul>
           )}
 
           <div className="navbar-auth">
             {!isAdmin && (
               <Link href="/cart" className="btn btn-ghost" style={{position:'relative'}}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-                </svg>
+                <ShoppingCart size={20} />
                 {cartCount > 0 && (
                   <span style={{
                     position:'absolute', top:-4, right:-4,
@@ -142,16 +205,46 @@ export default function Navbar() {
               aria-label={theme === 'dark' ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
               title={theme === 'dark' ? 'Mode terang' : 'Mode gelap'}
             >
-              {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+              <span key={theme} className="theme-toggle-icon">
+                {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+              </span>
             </button>
 
             {loading ? null : user ? (
-              <div style={{display:'flex', alignItems:'center', gap:'0.75rem'}}>
+              <div className="navbar-user-area">
                 {user.role === 'admin' && (
-                  <Link href="/admin" className="btn btn-ghost btn-sm">Admin</Link>
+                  <Link href="/admin" className=" btn btn-primary btn-sm dashboard-desktop-only">Dashboard</Link>
                 )}
-                <span style={{fontSize:'0.85rem', color:'var(--muted)'}}>{user.name}</span>
-                <button onClick={logout} className="btn btn-ghost btn-sm">Keluar</button>
+                <div className="user-dropdown" ref={dropdownRef}>
+                  <button
+                    className="user-dropdown-btn btn-ghost"
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    aria-label="Menu pengguna"
+                    aria-expanded={dropdownOpen}
+                  >
+                    <User size={20} />
+                  </button>
+                  {dropdownOpen && (
+                    <div className="user-dropdown-menu">
+                      <div className="user-dropdown-info">
+                        <div className="user-dropdown-name">{user.name}</div>
+                        <div className="user-dropdown-email">{user.email}</div>
+                      </div>
+                      <div className="user-dropdown-divider" />
+                      <Link href="/profile" className="user-dropdown-item" onClick={() => setDropdownOpen(false)}>
+                        <User size={16} />
+                        Profil Saya
+                      </Link>
+                      <button
+                        className="user-dropdown-logout"
+                        onClick={() => { logout(); setDropdownOpen(false); }}
+                      >
+                        <LogOut size={16} />
+                        Keluar
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <>
@@ -161,39 +254,68 @@ export default function Navbar() {
             )}
 
             <button className="navbar-hamburger" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Menu">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                {mobileOpen ? (
-                  <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>
-                ) : (
-                  <><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></>
-                )}
-              </svg>
+              <span key={String(mobileOpen)} className="navbar-hamburger-icon">
+                {mobileOpen ? <X size={24} /> : <Menu size={24} />}
+              </span>
             </button>
           </div>
         </div>
 
         <div className={`navbar-mobile ${mobileOpen ? 'open' : ''}`}>
+          <div className="navbar-mobile-inner">
           <Link href="/" onClick={() => setMobileOpen(false)}>Beranda</Link>
           <Link href="/?flash_sale=1" onClick={() => setMobileOpen(false)}>Flash Sale</Link>
+          <div className="navbar-mobile-accordion">
+            <button
+              className="navbar-mobile-accordion-trigger"
+              onClick={() => setMobileSubmenuOpen(prev => !prev)}
+              aria-expanded={mobileSubmenuOpen}
+            >
+              Produk
+              <span className={`navbar-mobile-accordion-chevron${mobileSubmenuOpen ? ' open' : ''}`}>
+                <ChevronDown size={12} strokeWidth={2.5} />
+              </span>
+            </button>
+            {mobileSubmenuOpen && (
+              <div className="navbar-mobile-accordion-content">
+                <button
+                  className="navbar-mobile-submenu-item"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    router.push('/?scroll=rekomendasi');
+                  }}
+                >
+                  Produk Rekomendasi
+                </button>
+                {CATEGORIES.map(cat => (
+                  <button
+                    key={cat.label}
+                    className="navbar-mobile-submenu-item"
+                    onClick={() => {
+                      setMobileOpen(false);
+                      router.push(`/?category=${encodeURIComponent(cat.label)}&scroll=rekomendasi`);
+                    }}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <Link href="/cart" onClick={() => setMobileOpen(false)}>Keranjang</Link>
           {!user && <Link href="/auth/login" onClick={() => setMobileOpen(false)}>Masuk</Link>}
           {!user && <Link href="/auth/signup" onClick={() => setMobileOpen(false)}>Daftar</Link>}
           {user && <Link href="/orders" onClick={() => setMobileOpen(false)}>Pesanan Saya</Link>}
-          {user?.role === 'admin' && <Link href="/admin" onClick={() => setMobileOpen(false)}>Admin</Link>}
+          {user?.role === 'admin' && <Link href="/admin" onClick={() => setMobileOpen(false)}>Dashboard</Link>}
           {/* Mobile theme toggle */}
           <button
             onClick={() => { toggleTheme(); }}
-            style={{
-              background:'none', border:'none', borderBottom:'1px solid var(--border)',
-              textAlign:'left', padding:'0.65rem 0', fontSize:'0.95rem', fontWeight:500,
-              color:'var(--fg)', width:'100%', cursor:'pointer',
-              display:'flex', alignItems:'center', gap:'0.5rem',
-            }}
+            className="navbar-mobile-btn"
           >
-            {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             {theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}
           </button>
-          {user && <button onClick={() => { logout(); setMobileOpen(false); }} style={{background:'none',border:'none',textAlign:'left',padding:'0.65rem 0',fontSize:'0.95rem',fontWeight:500,color:'var(--fg)',width:'100%',cursor:'pointer',borderBottom:'1px solid var(--border)'}}>Keluar</button>}
+          </div>
         </div>
       </nav>
     </>

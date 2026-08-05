@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import '@aejkatappaja/phantom-ui/ssr.css';
 import { AuthProvider } from '@/contexts/AuthContext';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import AppShell from '@/components/AppShell';
 
 export const metadata: Metadata = {
-  title: 'ByteCommerce',
+  title: 'ByteCommerce | Online Shop & Flash Sale',
   description: 'Flash Sale Engine - Belanja cepat, harga terbaik',
 };
 
@@ -35,9 +35,7 @@ export default function RootLayout({
       </head>
       <body>
         <AuthProvider>
-          <Navbar />
-          {children}
-          <Footer />
+          <AppShell>{children}</AppShell>
         </AuthProvider>
       </body>
     </html>

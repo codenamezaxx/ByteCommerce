@@ -139,6 +139,21 @@ function validateSetFlashSaleItem(body = {}) {
   };
 }
 
+// Validasi body POST /api/admin/flashsale/start.
+// durationMinutes: durasi sesi flash sale dalam menit (1 s.d. 1440 = 24 jam).
+function validateStartFlashSale(body = {}) {
+  const errors = [];
+
+  const durationMinutes = body.durationMinutes;
+  if (durationMinutes === undefined || durationMinutes === null || durationMinutes === '') {
+    errors.push({ field: 'durationMinutes', message: 'durationMinutes is required' });
+  } else if (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 1440) {
+    errors.push({ field: 'durationMinutes', message: 'durationMinutes must be an integer between 1 and 1440' });
+  }
+
+  return { errors, durationMinutes: Number(durationMinutes) };
+}
+
 function parseProductIdParam(value) {
   const num = Number(value);
   if (!Number.isInteger(num) || num <= 0) {
@@ -172,6 +187,15 @@ const flashsaleController = {
   warmup: async (req, res) => {
     const result = await flashsaleService.warmupFlashSaleStock();
     res.success(result, 'Flash sale stock warmed up to Redis');
+  },
+
+  start: async (req, res) => {
+    const { errors, durationMinutes } = validateStartFlashSale(req.body);
+    if (errors.length > 0) {
+      throw new AppError('Flash sale start validation failed', 422, 'VALIDATION_ERROR', errors);
+    }
+    const result = await flashsaleService.startFlashSale(durationMinutes);
+    res.created(result, 'Flash sale started');
   },
 
   killswitch: async (req, res) => {

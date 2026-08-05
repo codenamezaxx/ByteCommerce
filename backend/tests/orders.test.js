@@ -65,7 +65,12 @@ beforeAll(async () => {
 
 afterAll(async () => {
   // Hapus user test → orders & order_items ikut ter-cascade (ON DELETE CASCADE).
-  await db.query("DELETE FROM users WHERE email LIKE 'orders-test-%@bytecommerce.test'");
+  await db.query(
+    "DELETE FROM users WHERE email LIKE 'orders-test-%@bytecommerce.test' OR email LIKE 'orders-checkout-%@bytecommerce.test'"
+  );
+  // Hapus produk khusus test checkout cart (order_items & cart_items-nya sudah
+  // ikut terhapus via cascade dari users → orders/carts).
+  await db.query("DELETE FROM products WHERE name LIKE 'Cart Checkout Product%'");
   // Teardown bersih: tutup Redis (dibuat via require-chain app.js) & pool PG
   // agar jest tidak menggantung pada open handles.
   await redis.quit();
@@ -254,5 +259,205 @@ describe('GET /api/orders/:id (detail)', () => {
     expect(res.body.data.id).toBe(testOrderPaidId);
     expect(res.body.data.user_id).toBe(testUserId);
     expect(res.body.data.items[0].name).toBe('Kemeja Oxford Premium');
+  });
+});
+
+describe('POST /api/orders/checkout (cart checkout)', () => {
+  let checkoutToken;
+  let checkoutUserId;
+  let checkoutProductA; // harga 100000, stok 5 — alur sukses
+  let checkoutProductB; // harga 50000, stok 2 — alur out-of-stock
+
+  const CART_SHIPPING = {
+    name: 'Budi Santoso',
+    phone: '081234567890',
+    address: 'Jl. Merdeka No. 1',
+    city: 'Jakarta',
+    province: 'DKI Jakarta',
+    postalCode: '10110',
+    note: 'Kantor',
+  };
+
+  function checkoutBody(overrides = {}) {
+    return {
+      productIds: [checkoutProductA],
+      shipping: CART_SHIPPING,
+      paymentMethod: 'BANK_TRANSFER',
+      ...overrides,
+    };
+  }
+
+  beforeAll(async () => {
+    const email = `orders-checkout-${Date.now()}@bytecommerce.test`;
+    const signupRes = await request(app).post('/api/auth/signup').send({
+      name: 'Cart Checkout Tester',
+      email,
+      password: PASSWORD,
+    });
+    expect(signupRes.status).toBe(201);
+    checkoutUserId = signupRes.body.data.id;
+    checkoutToken = await login(email);
+
+    // Dua produk reguler khusus untuk test checkout cart (terisolasi dari seed).
+    const productARes = await request(app)
+      .post('/api/products')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: `Cart Checkout Product A ${Date.now()}`, category: 'Aksesoris', price: 100000, stock: 5 });
+    expect(productARes.status).toBe(201);
+    checkoutProductA = productARes.body.data.id;
+
+    const productBRes = await request(app)
+      .post('/api/products')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: `Cart Checkout Product B ${Date.now()}`, category: 'Aksesoris', price: 50000, stock: 2 });
+    expect(productBRes.status).toBe(201);
+    checkoutProductB = productBRes.body.data.id;
+  });
+
+  it('requires authentication -> 401', async () => {
+    const res = await request(app)
+      .post('/api/orders/checkout')
+      .send(checkoutBody());
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('AUTHENTICATION_FAILED');
+  });
+
+  it('rejects empty productIds -> 400 VALIDATION_ERROR', async () => {
+    const res = await request(app)
+      .post('/api/orders/checkout')
+      .set('Authorization', `Bearer ${checkoutToken}`)
+      .send(checkoutBody({ productIds: [] }));
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(res.body.errors).toContainEqual(expect.objectContaining({ field: 'productIds' }));
+  });
+
+  it('rejects missing required shipping field -> 422 VALIDATION_ERROR', async () => {
+    const res = await request(app)
+      .post('/api/orders/checkout')
+      .set('Authorization', `Bearer ${checkoutToken}`)
+      .send(checkoutBody({ shipping: { ...CART_SHIPPING, city: '   ' } }));
+
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(res.body.errors).toContainEqual(expect.objectContaining({ field: 'shipping.city' }));
+  });
+
+  it('rejects invalid paymentMethod -> 422 VALIDATION_ERROR', async () => {
+    const res = await request(app)
+      .post('/api/orders/checkout')
+      .set('Authorization', `Bearer ${checkoutToken}`)
+      .send(checkoutBody({ paymentMethod: 'PAYPAL' }));
+
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(res.body.errors).toContainEqual(expect.objectContaining({ field: 'paymentMethod' }));
+  });
+
+  it('creates order, decrements stock atomically, removes purchased cart items', async () => {
+    // Isi cart user: produk A qty 2.
+    const addRes = await request(app)
+      .post('/api/cart/items')
+      .set('Authorization', `Bearer ${checkoutToken}`)
+      .send({ productId: checkoutProductA, quantity: 2 });
+    expect(addRes.status).toBe(201);
+
+    const res = await request(app)
+      .post('/api/orders/checkout')
+      .set('Authorization', `Bearer ${checkoutToken}`)
+      .send(checkoutBody({ productIds: [checkoutProductA], paymentMethod: 'COD' }));
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('orderId');
+    expect(res.body.data.status).toBe('PAID');
+    expect(res.body.data.totalAmount).toBe(100000 * 2); // harga REGULER * qty
+    expect(res.body.data.paymentMethod).toBe('COD');
+
+    // Order tersimpan dengan data pengiriman + metode pembayaran.
+    const orderResult = await db.query(
+      `SELECT shipping_name, shipping_phone, shipping_address, shipping_city,
+              shipping_province, shipping_postal_code, shipping_note, payment_method, total_amount
+       FROM orders WHERE id = $1`,
+      [res.body.data.orderId]
+    );
+    const order = orderResult.rows[0];
+    expect(order.shipping_name).toBe('Budi Santoso');
+    expect(order.shipping_phone).toBe('081234567890');
+    expect(order.shipping_address).toBe('Jl. Merdeka No. 1');
+    expect(order.shipping_city).toBe('Jakarta');
+    expect(order.shipping_province).toBe('DKI Jakarta');
+    expect(order.shipping_postal_code).toBe('10110');
+    expect(order.shipping_note).toBe('Kantor');
+    expect(order.payment_method).toBe('COD');
+    expect(Number(order.total_amount)).toBe(200000);
+
+    // order_items: qty 2, price_at_purchase = harga reguler (BUKAN flash price).
+    const itemsResult = await db.query(
+      'SELECT product_id, quantity, price_at_purchase FROM order_items WHERE order_id = $1',
+      [res.body.data.orderId]
+    );
+    expect(itemsResult.rows).toHaveLength(1);
+    expect(itemsResult.rows[0].product_id).toBe(checkoutProductA);
+    expect(itemsResult.rows[0].quantity).toBe(2);
+    expect(Number(itemsResult.rows[0].price_at_purchase)).toBe(100000);
+
+    // Stok berkurang atomik di database (5 - 2 = 3).
+    const stockResult = await db.query('SELECT stock FROM products WHERE id = $1', [checkoutProductA]);
+    expect(Number(stockResult.rows[0].stock)).toBe(3);
+
+    // Item cart yang dibeli terhapus dari cart user.
+    const cartResult = await db.query(
+      `SELECT ci.* FROM cart_items ci
+       JOIN carts c ON c.id = ci.cart_id
+       WHERE c.user_id = $1`,
+      [checkoutUserId]
+    );
+    expect(cartResult.rows).toHaveLength(0);
+  });
+
+  it('returns 404 PRODUCT_NOT_FOUND for a nonexistent product', async () => {
+    const res = await request(app)
+      .post('/api/orders/checkout')
+      .set('Authorization', `Bearer ${checkoutToken}`)
+      .send(checkoutBody({ productIds: [999999] }));
+
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('PRODUCT_NOT_FOUND');
+    expect(res.body.success).toBe(false);
+  });
+
+  it('rejects out-of-stock -> 400 OUT_OF_STOCK_DB (transaction rolled back)', async () => {
+    // Cart produk B qty 5 > stok 2. Cart API hanya menolak stock <= 0, jadi
+    // qty berlebih tetap bisa masuk cart — penolakan terjadi di Stored Procedure.
+    const addRes = await request(app)
+      .post('/api/cart/items')
+      .set('Authorization', `Bearer ${checkoutToken}`)
+      .send({ productId: checkoutProductB, quantity: 5 });
+    expect(addRes.status).toBe(201);
+
+    const res = await request(app)
+      .post('/api/orders/checkout')
+      .set('Authorization', `Bearer ${checkoutToken}`)
+      .send(checkoutBody({ productIds: [checkoutProductB] }));
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('OUT_OF_STOCK_DB');
+    expect(res.body.success).toBe(false);
+
+    // Rollback transaksi SP: stok TIDAK berubah & item cart tetap ada.
+    const stockResult = await db.query('SELECT stock FROM products WHERE id = $1', [checkoutProductB]);
+    expect(Number(stockResult.rows[0].stock)).toBe(2);
+
+    const cartResult = await db.query(
+      `SELECT ci.quantity FROM cart_items ci
+       JOIN carts c ON c.id = ci.cart_id
+       WHERE c.user_id = $1 AND ci.product_id = $2`,
+      [checkoutUserId, checkoutProductB]
+    );
+    expect(cartResult.rows).toHaveLength(1);
+    expect(cartResult.rows[0].quantity).toBe(5);
   });
 });

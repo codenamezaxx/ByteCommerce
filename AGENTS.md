@@ -113,7 +113,37 @@ Saat diminta mengerjakan tugas oleh pengguna, AI Agent harus mengikuti langkah k
 
 ---
 
-## 6. Commit & Pull Request Guidelines
+## 6. Testing Standards
+
+### 6.1. Backend Testing (Jest + Supertest)
+- **Framework**: Jest dengan Supertest untuk HTTP assertions
+- **Location**: `backend/tests/` — satu file per module (`auth.test.js`, `products.test.js`, dll.)
+- **Pattern**: Setiap test suite menguji satu module secara independen
+- **Setup**: Gunakan `beforeAll` untuk setup database, `afterAll` untuk cleanup
+- **Mocking**: Mock Redis calls saat testing Redis-dependent features
+
+### 6.2. Frontend Testing (Jest + MSW)
+- **Framework**: Jest dengan ts-jest + babel-jest transform
+- **Mocking**: MSW (Mock Service Worker) untuk intercept API calls
+- **Setup**: `frontend/__tests__/setupTests.ts` — setup jest-dom + MSW lifecycle
+- **Location**: `frontend/__tests__/` — organized by `components/` and `pages/`
+- **Pattern**: Render component → assert DOM → verify API calls
+
+### 6.3. Load Testing (autocannon)
+- **Tool**: autocannon (npm) untuk HTTP load testing
+- **Location**: `backend/tests/load-test.js`
+- **Pattern**: Generate JWT tokens → spawn concurrent connections → verify zero-oversell
+- **Cleanup**: `backend/tests/cleanup-loadtest.js` untuk restore stock & delete test users
+
+### 6.4. Writing Testable Code
+- Controller harus menerima `req`, `res`, `next` — tidak langsung import DB
+- Service harus menerima dependencies sebagai parameters (dependency injection)
+- Gunakan `asyncWrapper` untuk async handlers
+- Format response harus konsisten (`success`, `message`, `data`)
+
+---
+
+## 7. Commit & Pull Request Guidelines
 
 Saat menghasilkan pesan komit atau deskripsi PR, gunakan standar **Conventional Commits**:
 

@@ -6,7 +6,8 @@ import { cartApi } from '@/lib/api';
 import { formatRupiah } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import ProductImage from '@/components/ProductImage';
-import { PageSpinner } from '@/components/Spinner';
+import PhantomSkeleton from '@/components/PhantomSkeleton';
+import { ShoppingCart } from 'lucide-react';
 
 interface CartItem {
   id: number;
@@ -69,18 +70,77 @@ export default function CartPage() {
   const hasFlashItems = items.some(item => item.is_flash_sale);
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
-  if (loading) return <PageSpinner />;
+  if (loading) {
+    return (
+      <section className="page">
+        <div className="container">
+          <div className="cart-layout">
+            <div className="cart-items-col">
+              <div className="cart-header">
+                <h2>Keranjang Belanja</h2>
+                <span className="text-muted" aria-hidden="true">
+                  <span className="ph-skeleton-block" style={{ display: 'inline-block', height: '0.9rem', width: '4rem' }} />
+                </span>
+              </div>
+
+              <div className="card" style={{ padding: 0 }}>
+                <div style={{ padding: '0.25rem 1.25rem' }}>
+                  <PhantomSkeleton loading animation="shimmer" reveal={0.3} stagger={0.03} count={3} count-gap={12} loading-label="Memuat keranjang">
+                    <div className="cart-item">
+                      <div className="ph-img" />
+                      <div className="cart-item-info">
+                        <div className="ph-skeleton-block" style={{ height: '1rem', width: '65%', marginBottom: '0.4rem' }} />
+                        <div className="ph-skeleton-block" style={{ height: '0.85rem', width: '35%', marginBottom: '0.6rem' }} />
+                        <div className="cart-item-actions">
+                          <div className="qty-control">
+                            <span className="ph-skeleton-block" style={{ display: 'block', width: '2rem', height: '2rem', borderRadius: 0 }} />
+                            <span className="ph-skeleton-block" style={{ display: 'block', width: '1.5rem', height: '2rem', borderRadius: 0 }} />
+                            <span className="ph-skeleton-block" style={{ display: 'block', width: '2rem', height: '2rem', borderRadius: 0 }} />
+                          </div>
+                          <span className="ph-skeleton-block" style={{ display: 'inline-block', height: '0.95rem', width: '5rem' }} />
+                        </div>
+                      </div>
+                    </div>
+                  </PhantomSkeleton>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="cart-summary">
+                <PhantomSkeleton loading animation="shimmer" reveal={0.3} loading-label="Memuat keranjang">
+                  <div>
+                    <div className="ph-skeleton-block" style={{ height: '1.05rem', width: '55%', marginBottom: '1rem' }} />
+                    <div className="summary-row">
+                      <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '40%' }} />
+                      <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '30%' }} />
+                    </div>
+                    <div className="summary-row">
+                      <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '45%' }} />
+                      <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '25%' }} />
+                    </div>
+                    <div className="summary-row" style={{ paddingTop: '0.85rem', marginTop: '0.25rem' }}>
+                      <div className="ph-skeleton-block" style={{ height: '1.1rem', width: '30%' }} />
+                      <div className="ph-skeleton-block" style={{ height: '1.1rem', width: '40%' }} />
+                    </div>
+                    <div className="ph-skeleton-block" style={{ height: '2.6rem', width: '100%', marginTop: '1.25rem' }} />
+                  </div>
+                </PhantomSkeleton>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   if (items.length === 0) {
     return (
       <section className="page">
         <div className="container">
-          <div className="empty-state">
-            <div style={{fontSize:'3rem', marginBottom:'1rem', lineHeight:1}}>
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="1.5" strokeLinecap="round">
-                <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-              </svg>
+          <div className="empty-state" style={{textAlign:'center'}}>
+            <div className='flex items-center justify-center' style={{fontSize:'3rem', marginBottom:'1rem', lineHeight:1}}>
+              <ShoppingCart size={48} stroke="var(--muted)" strokeWidth={1.5} />
             </div>
             <h3>Keranjang kamu kosong</h3>
             <p>Flash sale sedang berlangsung - lihat produk sebelum kehabisan.</p>

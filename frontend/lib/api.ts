@@ -132,10 +132,16 @@ export const flashsaleApi = {
         ...(paymentMethod ? { paymentMethod } : {}),
       }),
     }),
-  setItem: (productId: number, flashSalePrice: number, flashSaleStock: number) =>
+  setItem: (productId: number, flashSalePrice: number, flashSaleStock: number, startAt?: string | null, endAt?: string | null) =>
     request('/api/admin/flashsale/items', {
       method: 'POST',
-      body: JSON.stringify({ productId, flashSalePrice, flashSaleStock }),
+      body: JSON.stringify({
+        productId,
+        flashSalePrice,
+        flashSaleStock,
+        ...(startAt ? { startAt } : {}),
+        ...(endAt ? { endAt } : {}),
+      }),
     }),
   removeItem: (productId: number) =>
     request(`/api/admin/flashsale/items/${productId}`, { method: 'DELETE' }),
@@ -147,6 +153,51 @@ export const ordersApi = {
     request('/api/orders', { params }),
   get: (id: string | number) =>
     request(`/api/orders/${id}`),
+  checkout: (
+    productIds: number[],
+    shipping: { name: string; phone: string; address: string; city: string; province: string; postalCode: string; note?: string },
+    paymentMethod: string,
+  ) =>
+    request('/api/orders/checkout', {
+      method: 'POST',
+      body: JSON.stringify({ productIds, shipping, paymentMethod }),
+    }),
+};
+
+// User Profile
+export interface Profile {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  province: string | null;
+  postal_code: string | null;
+  created_at: string;
+}
+
+export const profileApi = {
+  get: () => request<{ success: boolean; data: Profile }>('/api/profile'),
+  update: (data: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    province?: string;
+    postalCode?: string;
+  }) =>
+    request<{ success: boolean; data: Profile }>('/api/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ success: boolean; message: string }>('/api/profile/password', {
+      method: 'PUT',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    }),
 };
 
 // Admin
@@ -154,6 +205,11 @@ export const adminApi = {
   dashboard: () => request('/api/admin/dashboard'),
   flashsaleWarmup: () =>
     request('/api/admin/flashsale/warmup', { method: 'POST' }),
+  flashsaleStart: (durationMinutes: number) =>
+    request('/api/admin/flashsale/start', {
+      method: 'POST',
+      body: JSON.stringify({ durationMinutes }),
+    }),
   flashsaleKillswitch: () =>
     request('/api/admin/flashsale/killswitch', { method: 'POST' }),
 

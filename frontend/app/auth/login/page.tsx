@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Suspense } from 'react';
+import { CircleX } from 'lucide-react';
 
 function LoginForm() {
   const router = useRouter();
@@ -36,9 +37,7 @@ function LoginForm() {
     <form onSubmit={handleSubmit}>
       {error && (
         <div className="toast toast-error mb-2">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
-            <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
-          </svg>
+          <CircleX size={18} style={{flexShrink:0}} />
           {error}
         </div>
       )}
@@ -99,9 +98,7 @@ function SignupForm() {
     <form onSubmit={handleSubmit}>
       {error && (
         <div className="toast toast-error mb-2">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
-            <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
-          </svg>
+          <CircleX size={18} style={{flexShrink:0}} />
           {error}
         </div>
       )}

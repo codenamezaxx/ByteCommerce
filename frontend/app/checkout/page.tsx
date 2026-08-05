@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { cartApi, flashsaleApi } from '@/lib/api';
+import { cartApi, flashsaleApi, ordersApi, profileApi } from '@/lib/api';
 import { formatRupiah } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { PageSpinner } from '@/components/Spinner';
+import PhantomSkeleton from '@/components/PhantomSkeleton';
+import InvoiceCard from '@/components/InvoiceCard';
+import { Check, CircleX } from 'lucide-react';
 
 interface CartItem {
   id: number;
@@ -38,6 +40,8 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<any>(null);
+  const [successOrder, setSuccessOrder] = useState<any>(null);
+  const [successLoading, setSuccessLoading] = useState(false);
 
   /* ---- Shipping form ---- */
   const [shipping, setShipping] = useState({
@@ -54,6 +58,21 @@ export default function CheckoutPage() {
   /* ---- Payment ---- */
   const [paymentMethod, setPaymentMethod] = useState('BANK_TRANSFER');
 
+  /* ---- Fetch order after checkout success ---- */
+  useEffect(() => {
+    if (!success?.orderId) return;
+    setSuccessLoading(true);
+    ordersApi
+      .get(success.orderId)
+      .then((res: any) => {
+        setSuccessOrder(res?.data || res);
+      })
+      .catch(() => {
+        setSuccessOrder(null);
+      })
+      .finally(() => setSuccessLoading(false));
+  }, [success?.orderId]);
+
   /* ---- Auth guard ---- */
   useEffect(() => {
     if (!user && !authLoading) {
@@ -61,11 +80,26 @@ export default function CheckoutPage() {
     }
   }, [user, authLoading, router]);
 
-  /* ---- Pre-fill name from user ---- */
+  /* ---- Pre-fill shipping from user profile ---- */
   useEffect(() => {
-    if (user?.name) {
-      setShipping(prev => ({ ...prev, name: user.name }));
-    }
+    if (!user) return;
+    (async () => {
+      try {
+        const res: any = await profileApi.get();
+        const p = res?.data;
+        if (!p) return;
+        // Hanya isi field yang masih kosong, jangan timpa input user.
+        setShipping(prev => ({
+          name: prev.name || user?.name || '',
+          phone: prev.phone || p.phone || '',
+          address: prev.address || p.address || '',
+          city: prev.city || p.city || '',
+          province: prev.province || p.province || '',
+          postalCode: prev.postalCode || p.postal_code || '',
+          note: prev.note,
+        }));
+      } catch { /* ignore — user bisa isi manual */ }
+    })();
   }, [user]);
 
   /* ---- Load cart ---- */
@@ -105,8 +139,8 @@ export default function CheckoutPage() {
   const handleCheckout = async () => {
     if (submitting) return;
 
-    /* Validate shipping for flash items */
-    if (hasFlash && !validateShipping()) {
+    /* Validate shipping for ALL checkouts (flash + regular) */
+    if (!validateShipping()) {
       setError('Mohon lengkapi data pengiriman.');
       return;
     }
@@ -114,36 +148,51 @@ export default function CheckoutPage() {
     setSubmitting(true);
     setError('');
 
+    const shippingPayload = {
+      name: shipping.name.trim(),
+      phone: shipping.phone.trim(),
+      address: shipping.address.trim(),
+      city: shipping.city.trim(),
+      province: shipping.province.trim(),
+      postalCode: shipping.postalCode.trim(),
+      note: shipping.note.trim() || undefined,
+    };
+
+    const normalItems = items.filter(i => !i.is_flash_sale);
+    let successOrderId: string | null = null;
+
     try {
-      if (hasFlash) {
+      /* Regular (non-flash) items → real checkout endpoint */
+      if (normalItems.length > 0) {
+        const res: any = await ordersApi.checkout(
+          normalItems.map(i => i.product_id),
+          shippingPayload,
+          paymentMethod,
+        );
+        const orderId = res?.data?.orderId || res?.data?.order_id;
+        if (orderId) successOrderId = String(orderId);
+      }
+
+      /* Flash sale items → per-item checkout (unchanged) */
+      if (flashItems.length > 0) {
         let lastOrderId: string | null = null;
         for (const item of flashItems) {
           const res: any = await flashsaleApi.checkout(
             item.product_id,
             item.quantity,
-            {
-              name: shipping.name.trim(),
-              phone: shipping.phone.trim(),
-              address: shipping.address.trim(),
-              city: shipping.city.trim(),
-              province: shipping.province.trim(),
-              postalCode: shipping.postalCode.trim(),
-              note: shipping.note.trim() || undefined,
-            },
+            shippingPayload,
             paymentMethod,
           );
           const orderId = res?.data?.orderId || res?.data?.order_id;
           if (orderId) lastOrderId = String(orderId);
         }
-        setSuccess({
-          orderId: lastOrderId || 'INV/BC/' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '/' + String(Date.now()).slice(-4),
-        });
-      } else {
-        /* Non-flash: simple success */
-        setSuccess({
-          orderId: 'INV/BC/' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '/' + String(Date.now()).slice(-4),
-        });
+        if (lastOrderId) successOrderId = lastOrderId;
       }
+
+      setSuccess({
+        orderId: successOrderId || 'INV/BC/' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '/' + String(Date.now()).slice(-4),
+      });
+      window.dispatchEvent(new Event('cart-updated'));
     } catch (err: any) {
       if (err?.status === 401) {
         setError('Silakan masuk untuk melanjutkan checkout flash sale');
@@ -159,10 +208,114 @@ export default function CheckoutPage() {
       }
     }
     setSubmitting(false);
-    window.dispatchEvent(new Event('cart-updated'));
   };
 
-  if (loading) return <PageSpinner />;
+  if (loading) {
+    return (
+      <>
+        <div className="container">
+          <div className="breadcrumb">
+            <span className="ph-skeleton-block" style={{ display: 'inline-block', height: '0.85rem', width: '14rem' }} />
+          </div>
+        </div>
+        <section className="page">
+          <div className="container">
+            <div className="section-header" style={{ marginBottom: '2rem' }}>
+              <h2>Checkout</h2>
+            </div>
+            <div className="checkout-layout">
+              <div>
+                {/* ---- Data Pengiriman ---- */}
+                <div className="card" style={{ marginBottom: '1.5rem' }}>
+                  <p className="eyebrow">Data Pengiriman</p>
+                  <h3 style={{ marginBottom: '1.25rem' }}>Pengiriman</h3>
+                  <PhantomSkeleton loading animation="shimmer" reveal={0.3} loading-label="Memuat checkout">
+                    <div>
+                      <div className="form-group">
+                        <div className="ph-skeleton-block" style={{ height: '0.8rem', width: '30%', marginBottom: '0.5rem' }} />
+                        <div className="ph-skeleton-block" style={{ height: '2.5rem', width: '100%' }} />
+                      </div>
+                      <div className="form-group">
+                        <div className="ph-skeleton-block" style={{ height: '0.8rem', width: '20%', marginBottom: '0.5rem' }} />
+                        <div className="ph-skeleton-block" style={{ height: '2.5rem', width: '100%' }} />
+                      </div>
+                      <div className="form-group">
+                        <div className="ph-skeleton-block" style={{ height: '0.8rem', width: '35%', marginBottom: '0.5rem' }} />
+                        <div className="ph-skeleton-block" style={{ height: '5rem', width: '100%' }} />
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div className="form-group">
+                          <div className="ph-skeleton-block" style={{ height: '0.8rem', width: '70%', marginBottom: '0.5rem' }} />
+                          <div className="ph-skeleton-block" style={{ height: '2.5rem', width: '100%' }} />
+                        </div>
+                        <div className="form-group">
+                          <div className="ph-skeleton-block" style={{ height: '0.8rem', width: '60%', marginBottom: '0.5rem' }} />
+                          <div className="ph-skeleton-block" style={{ height: '2.5rem', width: '100%' }} />
+                        </div>
+                      </div>
+                      <div className="form-group">
+                        <div className="ph-skeleton-block" style={{ height: '0.8rem', width: '25%', marginBottom: '0.5rem' }} />
+                        <div className="ph-skeleton-block" style={{ height: '2.5rem', width: '10rem' }} />
+                      </div>
+                    </div>
+                  </PhantomSkeleton>
+                </div>
+
+                {/* ---- Metode Pembayaran ---- */}
+                <div className="card" style={{ marginBottom: '1.5rem' }}>
+                  <p className="eyebrow">Pembayaran</p>
+                  <h3 style={{ marginBottom: '1rem' }}>Metode Pembayaran</h3>
+                  <PhantomSkeleton loading animation="shimmer" reveal={0.3} loading-label="Memuat checkout">
+                    <div style={{ display: 'grid', gap: '0.65rem' }}>
+                      {[0, 1, 2].map(i => (
+                        <div key={i} className="payment-option" style={{ cursor: 'default' }}>
+                          <div className="ph-skeleton-block" style={{ width: 18, height: 18, borderRadius: '50%', flexShrink: 0 }} />
+                          <div style={{ flex: 1 }}>
+                            <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '40%', marginBottom: '0.25rem' }} />
+                            <div className="ph-skeleton-block" style={{ height: '0.78rem', width: '60%' }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </PhantomSkeleton>
+                </div>
+
+                {/* ---- Item Pesanan ---- */}
+                <div className="card">
+                  <p className="eyebrow">Item Pesanan</p>
+                  <PhantomSkeleton loading animation="shimmer" reveal={0.3} stagger={0.03} count={3} count-gap={12} loading-label="Memuat checkout">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '55%', marginBottom: '0.35rem' }} />
+                        <div className="ph-skeleton-block" style={{ height: '0.8rem', width: '30%' }} />
+                      </div>
+                      <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '5rem', marginLeft: '1rem', flexShrink: 0 }} />
+                    </div>
+                  </PhantomSkeleton>
+                </div>
+              </div>
+
+              {/* ---- Sidebar Ringkasan ---- */}
+              <div style={{ position: 'sticky', top: '5.5rem' }}>
+                <div className="card" style={{ padding: '1.25rem' }}>
+                  <p className="eyebrow">Ringkasan Belanja</p>
+                  <PhantomSkeleton loading animation="shimmer" reveal={0.3} loading-label="Memuat checkout">
+                    <div>
+                      <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '100%', marginBottom: '0.65rem' }} />
+                      <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '100%', marginBottom: '0.65rem' }} />
+                      <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '100%', marginBottom: '0.65rem' }} />
+                      <div className="ph-skeleton-block" style={{ height: '1.1rem', width: '100%', marginBottom: '0.75rem' }} />
+                      <div className="ph-skeleton-block" style={{ height: '2.6rem', width: '100%' }} />
+                    </div>
+                  </PhantomSkeleton>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </>
+    );
+  }
   if (!user) return null;
 
   /* ---- Success screen ---- */
@@ -170,25 +323,73 @@ export default function CheckoutPage() {
     return (
       <section className="page-lg">
         <div className="container">
-          <div className="invoice-card" style={{maxWidth:520, textAlign:'left'}}>
-            <div style={{marginBottom:'1.5rem'}}>
-              <div style={{width:'3.5rem', height:'3.5rem', borderRadius:'50%', background:'var(--success-soft)', display:'inline-flex', alignItems:'center', justifyContent:'center'}}>
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          {successLoading ? (
+            <PhantomSkeleton loading animation="shimmer" reveal={0.3} loading-label="Memuat pesanan">
+              <div className="card" style={{ maxWidth: 560, margin: '0 auto', padding: '2rem' }}>
+                {/* ---- Header ---- */}
+                <div className="invoice-header" style={{ textAlign: 'center' }}>
+                  <div className="ph-skeleton-block" style={{ width: '3rem', height: '3rem', borderRadius: '50%', margin: '0 auto 1rem' }} />
+                  <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '40%', margin: '0 auto 0.75rem' }} />
+                  <div className="ph-skeleton-block" style={{ height: '1.4rem', width: '55%', margin: '0 auto 0.5rem' }} />
+                  <div className="ph-skeleton-block" style={{ height: '0.85rem', width: '35%', margin: '0 auto' }} />
+                </div>
+
+                <hr style={{ border: 'none', borderTop: '1px solid var(--border)', marginBottom: '1.5rem' }} />
+
+                {/* ---- Detail rows ---- */}
+                <div className="invoice-details">
+                  <div className="ph-skeleton-block" style={{ height: '0.7rem', width: '25%', marginBottom: '1rem' }} />
+                  <div className="invoice-row">
+                    <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '55%' }} />
+                    <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '20%' }} />
+                  </div>
+                  <div className="invoice-row">
+                    <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '50%' }} />
+                    <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '25%' }} />
+                  </div>
+                  <div className="invoice-row" style={{ borderTop: '1px solid var(--border)', paddingTop: '0.85rem', marginTop: '0.25rem' }}>
+                    <div className="ph-skeleton-block" style={{ height: '1.05rem', width: '40%' }} />
+                    <div className="ph-skeleton-block" style={{ height: '1.05rem', width: '30%' }} />
+                  </div>
+                </div>
+
+                <hr style={{ border: 'none', borderTop: '1px solid var(--border)', marginBottom: '1.5rem' }} />
+
+                {/* ---- Shipping block ---- */}
+                <div className="ph-skeleton-block" style={{ height: '0.7rem', width: '30%', marginBottom: '0.75rem' }} />
+                <div className="ph-skeleton-block" style={{ height: '4.5rem', width: '100%', marginBottom: '1.5rem' }} />
+
+                {/* ---- Actions ---- */}
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <div className="ph-skeleton-block" style={{ height: '2.5rem', flex: 1 }} />
+                  <div className="ph-skeleton-block" style={{ height: '2.5rem', flex: 1 }} />
+                </div>
+              </div>
+            </PhantomSkeleton>
+          ) : successOrder ? (
+            <InvoiceCard order={successOrder} />
+          ) : (
+            /* Fallback simple card if fetch fails */
+            <div className="card" style={{maxWidth:520, margin:'0 auto', padding:'2rem', textAlign:'center'}}>
+              <div style={{marginBottom:'1.5rem'}}>
+                <div style={{width:'3.5rem', height:'3.5rem', borderRadius:'50%', background:'var(--success-soft)', display:'inline-flex', alignItems:'center', justifyContent:'center'}}>
+                  <Check size={28} stroke="var(--success)" strokeWidth={2.5} />
+                </div>
+              </div>
+              <h2 style={{marginBottom:'0.5rem'}}>Pesanan Berhasil!</h2>
+              <p className="text-muted" style={{fontSize:'0.9rem', lineHeight:1.6, marginBottom:'1.25rem'}}>
+                Pesanan kamu sedang diproses. Silakan tunggu konfirmasi dari kurir.
+              </p>
+              <div className="card card-flat" style={{padding:'0.75rem 1rem', marginBottom:'1.5rem', background:'var(--bg)'}}>
+                <div className="text-muted" style={{fontSize:'0.8rem', marginBottom:'0.25rem'}}>Order ID</div>
+                <span className="mono" style={{fontWeight:600, fontSize:'0.95rem'}}>{success.orderId}</span>
+              </div>
+              <div style={{display:'flex', gap:'0.75rem'}}>
+                <Link href="/orders" className="btn btn-primary" style={{flex:1, justifyContent:'center'}}>Lihat Pesanan</Link>
+                <Link href="/" className="btn btn-outline" style={{flex:1, justifyContent:'center'}}>Kembali Belanja</Link>
               </div>
             </div>
-            <h2 style={{marginBottom:'0.5rem'}}>Pesanan Berhasil!</h2>
-            <p className="text-muted" style={{fontSize:'0.9rem', lineHeight:1.6, marginBottom:'1.25rem'}}>
-              Pesanan kamu sedang diproses. Silakan tunggu konfirmasi dari kurir.
-            </p>
-            <div className="card card-flat" style={{padding:'0.75rem 1rem', marginBottom:'1.5rem', background:'var(--bg)'}}>
-              <div className="text-muted" style={{fontSize:'0.8rem', marginBottom:'0.25rem'}}>Order ID</div>
-              <span className="mono" style={{fontWeight:600, fontSize:'0.95rem'}}>{success.orderId}</span>
-            </div>
-            <div style={{display:'flex', gap:'0.75rem'}}>
-              <Link href="/orders" className="btn btn-primary" style={{flex:1, justifyContent:'center'}}>Lihat Pesanan</Link>
-              <Link href="/" className="btn btn-outline" style={{flex:1, justifyContent:'center'}}>Kembali Belanja</Link>
-            </div>
-          </div>
+          )}
         </div>
       </section>
     );
@@ -209,9 +410,7 @@ export default function CheckoutPage() {
           </div>
           {error && (
             <div className="toast toast-error mb-3">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
-                <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
-              </svg>
+              <CircleX size={20} style={{flexShrink:0}} />
               {error}
             </div>
           )}
@@ -223,8 +422,9 @@ export default function CheckoutPage() {
                 <h3 style={{marginBottom:'1.25rem'}}>Pengiriman</h3>
 
                 <div className="form-group">
-                  <label className="form-label">Nama Lengkap <span style={{color:'var(--danger)'}}>*</span></label>
+                  <label className="form-label" htmlFor="checkout-nama">Nama Lengkap <span style={{color:'var(--danger)'}}>*</span></label>
                   <input
+                    id="checkout-nama"
                     type="text"
                     className={`form-input ${shippingErrors.name ? 'form-input-error' : ''}`}
                     value={shipping.name}
@@ -234,8 +434,9 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">No. HP <span style={{color:'var(--danger)'}}>*</span></label>
+                  <label className="form-label" htmlFor="checkout-telepon">No. HP <span style={{color:'var(--danger)'}}>*</span></label>
                   <input
+                    id="checkout-telepon"
                     type="tel"
                     className={`form-input ${shippingErrors.phone ? 'form-input-error' : ''}`}
                     placeholder="08xxxxxxxxxx"
@@ -246,8 +447,9 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Alamat Lengkap <span style={{color:'var(--danger)'}}>*</span></label>
+                  <label className="form-label" htmlFor="checkout-alamat">Alamat Lengkap <span style={{color:'var(--danger)'}}>*</span></label>
                   <textarea
+                    id="checkout-alamat"
                     className={`form-input ${shippingErrors.address ? 'form-input-error' : ''}`}
                     rows={3}
                     placeholder="Jalan, nomor, RT/RW"
@@ -259,8 +461,9 @@ export default function CheckoutPage() {
 
                 <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem'}}>
                   <div className="form-group">
-                    <label className="form-label">Kota/Kabupaten <span style={{color:'var(--danger)'}}>*</span></label>
+                    <label className="form-label" htmlFor="checkout-kota">Kota/Kabupaten <span style={{color:'var(--danger)'}}>*</span></label>
                     <input
+                      id="checkout-kota"
                       type="text"
                       className={`form-input ${shippingErrors.city ? 'form-input-error' : ''}`}
                       value={shipping.city}
@@ -269,8 +472,9 @@ export default function CheckoutPage() {
                     {shippingErrors.city && <span className="form-error">{shippingErrors.city}</span>}
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Provinsi <span style={{color:'var(--danger)'}}>*</span></label>
+                    <label className="form-label" htmlFor="checkout-provinsi">Provinsi <span style={{color:'var(--danger)'}}>*</span></label>
                     <input
+                      id="checkout-provinsi"
                       type="text"
                       className={`form-input ${shippingErrors.province ? 'form-input-error' : ''}`}
                       value={shipping.province}
@@ -281,8 +485,9 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Kode Pos <span style={{color:'var(--danger)'}}>*</span></label>
+                  <label className="form-label" htmlFor="checkout-kode-pos">Kode Pos <span style={{color:'var(--danger)'}}>*</span></label>
                   <input
+                    id="checkout-kode-pos"
                     type="text"
                     className={`form-input ${shippingErrors.postalCode ? 'form-input-error' : ''}`}
                     style={{maxWidth:200}}
@@ -293,8 +498,9 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Catatan <span className="text-muted" style={{fontWeight:400, fontSize:'0.8rem'}}>(opsional)</span></label>
+                  <label className="form-label" htmlFor="checkout-catatan">Catatan <span className="text-muted" style={{fontWeight:400, fontSize:'0.8rem'}}>(opsional)</span></label>
                   <textarea
+                    id="checkout-catatan"
                     className="form-input"
                     rows={2}
                     placeholder="Catatan untuk kurir (opsional)"
@@ -305,8 +511,7 @@ export default function CheckoutPage() {
               </div>
 
               {/* ---- Metode Pembayaran ---- */}
-              {hasFlash && (
-                <div className="card" style={{marginBottom:'1.5rem'}}>
+              <div className="card" style={{marginBottom:'1.5rem'}}>
                   <p className="eyebrow">Pembayaran</p>
                   <h3 style={{marginBottom:'1rem'}}>Metode Pembayaran</h3>
                   <div style={{display:'grid', gap:'0.65rem'}}>
@@ -332,7 +537,6 @@ export default function CheckoutPage() {
                     ))}
                   </div>
                 </div>
-              )}
 
               {/* ---- Item Pesanan ---- */}
               <div className="card">

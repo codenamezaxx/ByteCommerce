@@ -28,7 +28,7 @@ ByteCommerce mengadopsi arsitektur *Monolith-Modular* pada backend Express.js. S
 bytecommerce/
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml              # CI/CD Pipeline
+│       └── deploy.yml              # CI/CD Pipeline (lint, test, build, deploy)
 ├── database/
 │   ├── init.sql                    # Skema tabel, indeks, & Stored Procedures
 │   └── seeds.sql                   # Data dummy produk & admin
@@ -60,22 +60,54 @@ bytecommerce/
 │   │   │   │   ├── cart.controller.js
 │   │   │   │   ├── cart.service.js
 │   │   │   │   └── cart.routes.js
-│   │   │   └── orders/
-│   │   │       ├── orders.controller.js
-│   │   │       ├── orders.service.js
-│   │   │       └── orders.routes.js
+│   │   │   ├── orders/
+│   │   │   │   ├── orders.controller.js
+│   │   │   │   ├── orders.service.js
+│   │   │   │   └── orders.routes.js
+│   │   │   └── admin/
+│   │   │       ├── admin.controller.js
+│   │   │       ├── admin.service.js
+│   │   │       └── admin.routes.js
 │   │   ├── utils/                  # Helper Utilities
 │   │   │   ├── asyncWrapper.js     # Handling Promise Rejections
 │   │   │   └── responseFormatter.js# Standard JSON Response Format
 │   │   └── app.js                  # Express App Initialization & Routes Entry
+│   ├── tests/                      # Backend Test Suite (154 tests, 10 suites)
+│   │   ├── auth.test.js            # Auth module tests
+│   │   ├── products.test.js        # Products module tests
+│   │   ├── cart.test.js            # Cart module tests
+│   │   ├── flashsale.test.js       # Flash sale tests
+│   │   ├── orders.test.js          # Orders module tests
+│   │   ├── admin.test.js           # Admin module tests
+│   │   ├── concurrency.test.js     # Race condition tests
+│   │   ├── redis-fallback.test.js  # Redis failure fallback tests
+│   │   ├── ratelimiter.test.js     # Rate limiter tests
+│   │   ├── e2e-flow.test.js        # End-to-end user flow tests
+│   │   ├── load-test.js            # autocannon load test (500 concurrent)
+│   │   └── cleanup-loadtest.js     # Post-load-test cleanup script
 │   ├── Dockerfile
 │   ├── package.json
 │   └── server.js                   # HTTP Server Entry Point (listen port)
-├── frontend/                       # Next.js Application
-├── docker-compose.yml              # Multi-container Orchestration
+├── frontend/                       # Next.js 14 Application
+│   ├── app/                        # Pages (App Router)
+│   ├── components/                 # Reusable UI components
+│   ├── contexts/                   # React Context (AuthContext)
+│   ├── lib/                        # API client, utilities
+│   ├── __tests__/                  # Frontend Test Suite (65 tests, 16 suites)
+│   │   ├── components/             # Component tests
+│   │   ├── pages/                  # Page tests
+│   │   ├── mocks/                  # MSW handlers for API mocking
+│   │   └── setupTests.ts           # Test setup (jest-dom, MSW lifecycle)
+│   ├── jest.config.js              # Jest configuration
+│   └── package.json
+├── docker-compose.yml              # Development stack
+├── docker-compose.prod.yml         # Production stack
 ├── PRD.md                          # Product Requirement Document
 ├── ARCHITECTURE.md                 # System Architecture (Dokumen Ini)
-└── AGENTS.md                       # Coding Standard untuk AI
+├── AGENTS.md                       # Coding Standard untuk AI
+├── TASK.md                         # Master task list
+├── API.md                          # API endpoint reference
+└── DEPLOYMENT.md                   # Deployment guide
 ```
 
 ---
@@ -398,7 +430,76 @@ networks:
 
 ---
 
-## 7. Migration & Cart Merging Strategy
+## 7. Testing Infrastructure
+
+### 7.1. Backend Tests (Jest + Supertest)
+
+```text
+backend/tests/
+├── auth.test.js            # 17 tests — signup, login, logout, session
+├── products.test.js        # 24 tests — catalog CRUD, pagination, filter
+├── cart.test.js            # 18 tests — guest & registered cart, merge
+├── flashsale.test.js       # 13 tests — flash sale checkout, zero-oversell
+├── orders.test.js          # 14 tests — order history, invoice
+├── admin.test.js           # 4 tests — dashboard metrics
+├── concurrency.test.js     # Race condition testing
+├── redis-fallback.test.js  # 11 tests — Redis failure graceful fallback
+├── ratelimiter.test.js     # Rate limiting behavior
+├── e2e-flow.test.js        # End-to-end user flow
+├── load-test.js            # autocannon load test (500 concurrent)
+└── cleanup-loadtest.js     # Post-load-test cleanup
+```
+
+**Total**: 154 tests, 10 suites
+
+### 7.2. Frontend Tests (Jest + MSW)
+
+```text
+frontend/__tests__/
+├── components/             # Component tests
+│   ├── Spinner.test.tsx
+│   ├── PhantomSkeleton.test.tsx
+│   ├── Footer.test.tsx
+│   ├── Navbar.test.tsx
+│   ├── CountdownTimer.test.tsx
+│   ├── ProductImage.test.tsx
+│   └── InvoiceCard.test.tsx
+├── pages/                  # Page tests
+│   ├── Homepage.test.tsx
+│   ├── Login.test.tsx
+│   ├── Signup.test.tsx
+│   ├── Cart.test.tsx
+│   ├── Checkout.test.tsx
+│   ├── ProductDetail.test.tsx
+│   ├── Orders.test.tsx
+│   ├── Profile.test.tsx
+│   └── Admin.test.tsx
+├── mocks/                  # MSW handlers
+│   ├── handlers.ts
+│   ├── server.ts
+│   └── phantom-ui.ts
+└── setupTests.ts           # jest-dom + MSW lifecycle
+```
+
+**Total**: 65 tests, 16 suites | Coverage: 42.2% stmts, 35.12% branch, 45.33% lines
+
+### 7.3. Load Testing (autocannon)
+
+Load test menggunakan `autocannon` untuk menguji zero-oversell guarantee di bawah tekanan tinggi.
+
+**Setup**:
+1. Buat 500 test users langsung di database
+2. Generate JWT tokens untuk setiap user
+3. Jalankan `node tests/load-test.js` (500 connections × 30s)
+
+**Hasil**:
+- Zero oversell: ✅ PASS (500 orders dari 500 stock, row-level locking PostgreSQL)
+- Throughput: ~765 req/s avg
+- Latency p99: 1850ms (single PostgreSQL bottleneck — expected)
+
+---
+
+## 8. Migration & Cart Merging Strategy
 
 1. **Pengunjung Anonim (Guest)**: Frontend menyimpan `guest_id` di Local Storage / Cookie. Setiap pemanggilan API keranjang menyertakan header `X-Guest-ID: <UUID>`.
 2. **Saat Guest Login/Sign Up**:

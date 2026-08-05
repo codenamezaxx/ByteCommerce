@@ -9,5 +9,7 @@ const router = express.Router();
 
 router.get('/', authenticate, asyncWrapper(ordersController.list));
 router.get('/:id', authenticate, asyncWrapper(ordersController.detail));
+// Checkout keranjang reguler (non-flash-sale) — wajib login (req.user.id).
+router.post('/checkout', authenticate, asyncWrapper(ordersController.checkout));
 
 module.exports = router;

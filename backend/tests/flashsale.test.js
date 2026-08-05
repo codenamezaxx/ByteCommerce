@@ -313,43 +313,66 @@ describe('Admin flash sale control', () => {
     expect(Number(cached)).toBe(3);
   });
 
-  it('killswitch zeroes all quotas so checkout fails at Redis tier', async () => {
-    const res = await request(app)
-      .post('/api/admin/flashsale/killswitch')
-      .set('Authorization', `Bearer ${adminToken}`);
+  it('killswitch permanently removes all flash sale items (warmup cannot revive)', async () => {
+    try {
+      const res = await request(app)
+        .post('/api/admin/flashsale/killswitch')
+        .set('Authorization', `Bearer ${adminToken}`);
 
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(res.body.data.killed).toBeGreaterThanOrEqual(5);
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.killed).toBeGreaterThanOrEqual(5);
 
-    // Checkout sekarang ditolak di TIER 1 (Redis = 0), DB tidak tersentuh.
-    const checkoutRes = await request(app)
-      .post('/api/flashsale/checkout')
-      .set('Authorization', `Bearer ${userToken}`)
-      .send(checkoutBody());
+      // Item dikeluarkan dari program flash sale di PostgreSQL (bukan hanya Redis).
+      const dbCheck = await db.query(
+        'SELECT is_flash_sale, flash_sale_price FROM products WHERE id = $1',
+        [productA.id]
+      );
+      expect(dbCheck.rows[0].is_flash_sale).toBe(false);
+      expect(dbCheck.rows[0].flash_sale_price).toBe(null);
 
-    expect(checkoutRes.status).toBe(400);
-    expect(checkoutRes.body.code).toBe('OUT_OF_STOCK_REDIS');
+      // Checkout ditolak atomik oleh Stored Procedure (NOT_FLASH_SALE),
+      // bukan sekadar ditolak di tier Redis.
+      const checkoutRes = await request(app)
+        .post('/api/flashsale/checkout')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send(checkoutBody());
 
-    // Kuota flash DB tidak berubah (masih 3).
-    const stockResult = await db.query('SELECT flash_sale_stock FROM products WHERE id = $1', [productA.id]);
-    expect(Number(stockResult.rows[0].flash_sale_stock)).toBe(3);
-  });
+      expect(checkoutRes.status).toBe(409);
+      expect(checkoutRes.body.code).toBe('NOT_FLASH_SALE');
 
-  it('warmup re-enables checkout after killswitch', async () => {
-    await request(app)
-      .post('/api/admin/flashsale/warmup')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
+      // Warmup TIDAK menghidupkan kembali item yang sudah di-killswitch
+      // (tidak ada item flash aktif tersisa untuk di-warmup).
+      const warmRes = await request(app)
+        .post('/api/admin/flashsale/warmup')
+        .set('Authorization', `Bearer ${adminToken}`);
 
-    const res = await request(app)
-      .post('/api/flashsale/checkout')
-      .set('Authorization', `Bearer ${userToken}`)
-      .send(checkoutBody());
+      expect(warmRes.status).toBe(200);
+      expect(warmRes.body.data.warmed).toBe(0);
 
-    expect(res.status).toBe(201);
-    expect(res.body.data.totalAmount).toBe(75000);
-    createdOrderIds.push(res.body.data.orderId);
+      const reviveRes = await request(app)
+        .post('/api/flashsale/checkout')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send(checkoutBody());
+
+      expect(reviveRes.status).toBe(409);
+      expect(reviveRes.body.code).toBe('NOT_FLASH_SALE');
+    } finally {
+      // Restore 5 produk seed flash sale (id 1-5) persis seperti seeds.sql —
+      // test file lain (products.test.js / admin.test.js) bergantung pada
+      // keberadaan item flash seed di DB.
+      await db.query(
+        `UPDATE products SET
+           is_flash_sale = TRUE,
+           flash_sale_price = CASE id
+             WHEN 1 THEN 899000 WHEN 2 THEN 549000 WHEN 3 THEN 429000
+             WHEN 4 THEN 299000 WHEN 5 THEN 1799000 ELSE flash_sale_price END,
+           flash_sale_stock = stock,
+           flash_sale_start = NULL,
+           flash_sale_end = NULL
+         WHERE id IN (1,2,3,4,5)`
+      );
+    }
   });
 });
 
@@ -501,31 +524,96 @@ describe('Admin flash sale items (set / remove)', () => {
 
 describe('Redis cache loss recovery (key hilang setelah restart Redis)', () => {
   it('re-initializes a missing stock key from DB instead of creating a negative quota', async () => {
+    // Pakai produk seed flash id 1 (Smartwatch X100, kuota 12): killswitch test
+    // sebelumnya mengeluarkan productA/B dari program flash sale, sedangkan
+    // seed id 1-5 di-restore oleh finally test tersebut.
+    const seedProductId = 1;
     // Simulasi: Redis baru restart → semua key flash_sale:stock:* hilang.
-    await redis.del(`${STOCK_KEY_PREFIX}${productA.id}`);
-    expect(await redis.get(`${STOCK_KEY_PREFIX}${productA.id}`)).toBe(null);
+    await redis.del(`${STOCK_KEY_PREFIX}${seedProductId}`);
+    expect(await redis.get(`${STOCK_KEY_PREFIX}${seedProductId}`)).toBe(null);
 
     // Checkout harus TETAP SUKSES (bukan OUT_OF_STOCK_REDIS) karena stok DB ada.
     const res = await request(app)
       .post('/api/flashsale/checkout')
       .set('Authorization', `Bearer ${userToken}`)
-      .send(checkoutBody({ productId: productA.id, quantity: 1 }));
+      .send(checkoutBody({ productId: seedProductId, quantity: 1 }));
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
     createdOrderIds.push(res.body.data.orderId);
 
     // Key harus ADA kembali, TIDAK negatif, dan akurat = stok flash tersisa di DB.
-    const cached = await redis.get(`${STOCK_KEY_PREFIX}${productA.id}`);
+    const cached = await redis.get(`${STOCK_KEY_PREFIX}${seedProductId}`);
     expect(cached).not.toBe(null);
     expect(Number(cached)).toBeGreaterThanOrEqual(0);
 
     const stockResult = await db.query(
       'SELECT flash_sale_stock FROM products WHERE id = $1',
-      [productA.id]
+      [seedProductId]
     );
     const dbStock = Number(stockResult.rows[0].flash_sale_stock);
     expect(dbStock).toBeGreaterThanOrEqual(0);
     expect(Number(cached)).toBe(dbStock);
+  });
+});
+
+describe('Auto-ekspirasi flash sale (flash_sale_end lewat)', () => {
+  it('membersihkan item expired: tidak aktif, harga normal kembali, checkout ditolak', async () => {
+    const ts = Date.now();
+    // Produk reguler baru, lalu ditetapkan flash sale dengan endAt MASA LALU.
+    const prodRes = await request(app)
+      .post('/api/products')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: `${TEST_PRODUCT_NAME_PREFIX} EXP ${ts}`,
+        description: 'flash sale test product',
+        category: 'Elektronik',
+        price: 300000,
+        stock: 10,
+      });
+    expect(prodRes.status).toBe(201);
+    const productId = prodRes.body.data.id;
+
+    const setRes = await request(app)
+      .post('/api/admin/flashsale/items')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        productId,
+        flashSalePrice: 150000,
+        flashSaleStock: 5,
+        endAt: new Date(Date.now() - 60 * 1000).toISOString(),
+      });
+    expect(setRes.status).toBe(201);
+    expect(setRes.body.data.flash_sale_end).not.toBe(null);
+
+    // 1) Active list memicu auto-ekspirasi → produk expired tidak ikut.
+    const activeRes = await request(app).get('/api/flashsale/active');
+    expect(activeRes.status).toBe(200);
+    expect(activeRes.body.data.products.map((p) => p.id)).not.toContain(productId);
+
+    // 2) DB dibersihkan permanen → harga normal kembali di response.
+    const detailRes = await request(app).get(`/api/products/${productId}`);
+    expect(detailRes.status).toBe(200);
+    expect(detailRes.body.data.is_flash_sale).toBe(false);
+    expect(detailRes.body.data.flash_sale_price).toBe(null);
+    expect(detailRes.body.data.flash_sale_stock).toBe(null);
+    expect(detailRes.body.data.flash_sale_end).toBe(null);
+
+    // 3) Checkout flash sale produk expired → ditolak (bukan lagi flash sale).
+    const checkoutRes = await request(app)
+      .post('/api/flashsale/checkout')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({
+        productId,
+        quantity: 1,
+        shipping: VALID_SHIPPING,
+        paymentMethod: VALID_PAYMENT_METHOD,
+      });
+    expect(checkoutRes.status).toBe(409);
+
+    // 4) List filter flash_sale=true tidak memuat produk expired.
+    const listRes = await request(app).get('/api/products?flash_sale=true&limit=100');
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.data.products.map((p) => p.id)).not.toContain(productId);
   });
 });

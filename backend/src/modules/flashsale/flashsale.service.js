@@ -26,15 +26,55 @@ function mapFlashProduct(row) {
 }
 
 class FlashSaleService {
-  // Daftar produk flash sale aktif (harga flash terpasang).
-  // remaining_stock diambil dari Redis bila tersedia (kuota tersisa); bila Redis
-  // miss/down, fallback ke stok PostgreSQL (graceful).
+  // Auto-ekspirasi: item yang sudah melewati flash_sale_end dikeluarkan secara
+  // PERMANEN dari program flash sale (is_flash_sale=FALSE + harga/kuota/jadwal
+  // dihapus), sehingga diskon ikut berakhir tanpa cron job. Dipanggil di awal
+  // operasi baca/tulis flash sale; kalau tidak ada item expired, no-op murah.
+  static async expireEndedFlashSales() {
+    const result = await db.query(
+      `UPDATE products
+       SET is_flash_sale = FALSE,
+           flash_sale_price = NULL,
+           flash_sale_stock = NULL,
+           flash_sale_start = NULL,
+           flash_sale_end = NULL
+       WHERE flash_sale_end IS NOT NULL AND flash_sale_end <= NOW()
+       RETURNING id`
+    );
+
+    const expired = result.rows;
+    if (expired.length === 0) return 0;
+
+    // Hapus key kuota Redis best-effort (Redis down → DB sudah final).
+    try {
+      const pipeline = redis.pipeline();
+      for (const row of expired) {
+        pipeline.del(`${STOCK_KEY_PREFIX}${row.id}`);
+      }
+      await pipeline.exec();
+    } catch (err) {
+      console.warn(`[flashsale] expireEndedFlashSales: Redis cleanup skipped: ${err.message}`);
+    }
+
+    return expired.length;
+  }
+
+  // Daftar produk flash sale yang MASIH BERLAKU (belum melewati flash_sale_end).
+  // Item yang dijadwalkan ke depan (flash_sale_start > NOW()) ikut dikembalikan
+  // dengan flag is_upcoming=true agar frontend bisa menampilkan countdown
+  // "mulai dalam". remaining_stock diambil dari Redis bila tersedia (kuota
+  // tersisa); bila Redis miss/down, fallback ke stok PostgreSQL (graceful).
   static async getActiveFlashSale() {
+    // Bersihkan item yang jendelanya sudah lewat supaya diskon benar-benar
+    // berakhir dan daftar aktif tidak pernah memuat produk expired.
+    await FlashSaleService.expireEndedFlashSales();
+
     const result = await db.query(
       `SELECT id, name, description, category, price, flash_sale_price, stock,
               flash_sale_stock, flash_sale_start, flash_sale_end, image_url
        FROM products
        WHERE is_flash_sale = TRUE AND flash_sale_price IS NOT NULL
+         AND (flash_sale_end IS NULL OR flash_sale_end > NOW())
        ORDER BY id ASC`
     );
 
@@ -46,6 +86,7 @@ class FlashSaleService {
       console.warn(`[flashsale] Redis unavailable for stock read, falling back to DB: ${err.message}`);
     }
 
+    const now = Date.now();
     return result.rows.map((p, i) => {
       const cachedValue = cached && cached[i] !== null && cached[i] !== undefined ? cached[i] : null;
       const remaining = cachedValue !== null ? Math.max(0, Number(cachedValue)) : Number(p.stock);
@@ -61,6 +102,7 @@ class FlashSaleService {
         flash_sale_stock: p.flash_sale_stock !== null ? Number(p.flash_sale_stock) : null,
         flash_sale_start: p.flash_sale_start,
         flash_sale_end: p.flash_sale_end,
+        is_upcoming: p.flash_sale_start !== null && new Date(p.flash_sale_start).getTime() > now,
         image_url: p.image_url ? storageService.getPublicPath(p.image_url) : null,
         remaining_stock: remaining,
         discount_percent: Math.round((1 - flashPrice / Number(p.price)) * 100),
@@ -73,6 +115,10 @@ class FlashSaleService {
   // paymentMethod: 'BANK_TRANSFER' | 'COD' | 'QRIS'
   static async checkout(userId, productId, quantity = 1, shipping = {}, paymentMethod = 'BANK_TRANSFER') {
     const stockKey = `${STOCK_KEY_PREFIX}${productId}`;
+
+    // Auto-ekspirasi sebelum pre-check: item expired bukan lagi flash sale,
+    // sehingga key Redis basi tidak dipakai dan SP menolak dengan NOT_FLASH_SALE.
+    await FlashSaleService.expireEndedFlashSales();
 
     // --- TIER 1: pre-check Redis (graceful fallback ke DB bila miss/error) ----
     let cachedStock = null;
@@ -123,6 +169,11 @@ class FlashSaleService {
         if (err.message === 'FLASH_PRICE_NOT_SET') {
           throw new ConflictError('Flash sale price is not configured', [], 'FLASH_PRICE_NOT_SET');
         }
+        if (err.message === 'FLASH_SALE_NOT_ACTIVE') {
+          // Checkout di luar jendela waktu flash sale (belum mulai / sudah
+          // berakhir / di-killswitch) — ditolak atomik oleh Stored Procedure.
+          throw new ConflictError('Flash sale is not active at this time', [], 'FLASH_SALE_NOT_ACTIVE');
+        }
       }
       throw err;
     }
@@ -163,6 +214,17 @@ class FlashSaleService {
       console.warn(`[flashsale] Redis quota sync failed (order ${orderId} tetap valid): ${err.message}`);
     }
 
+    // Best-effort: hapus item flash sale yang sudah dibeli dari cart user.
+    // Order sudah PAID di DB — kegagalan cleanup TIDAK boleh menggagalkan order.
+    try {
+      await db.query(
+        `DELETE FROM cart_items WHERE cart_id = (SELECT id FROM carts WHERE user_id = $1 ORDER BY id ASC LIMIT 1) AND product_id = $2`,
+        [userId, productId]
+      );
+    } catch (err) {
+      console.warn(`[flashsale] cart cleanup failed (order ${orderId} tetap valid): ${err.message}`);
+    }
+
     const orderResult = await db.query(
       'SELECT id, total_amount, status, payment_method FROM orders WHERE id = $1',
       [orderId]
@@ -177,13 +239,20 @@ class FlashSaleService {
   }
 
   // Admin: muat stok flash sale dari PostgreSQL ke Redis (kuota awal).
+  // HANYA item yang masih dalam jendela aktif (belum berakhir & sudah mulai)
+  // yang di-warmup — item berakhir/killswitch tidak akan hidup lagi.
   // Sumber stok = flash_sale_stock (alokasi khusus flash); bila NULL (produk
   // legacy flash tanpa kuota terpisah) fallback ke kolom stock.
   static async warmupFlashSaleStock() {
+    // Item expired tidak boleh ikut di-warmup (di-clear lebih dulu).
+    await FlashSaleService.expireEndedFlashSales();
+
     const result = await db.query(
       `SELECT id, COALESCE(flash_sale_stock, stock) AS warm_stock
        FROM products
        WHERE is_flash_sale = TRUE AND flash_sale_price IS NOT NULL
+         AND (flash_sale_start IS NULL OR flash_sale_start <= NOW())
+         AND (flash_sale_end IS NULL OR flash_sale_end > NOW())
        ORDER BY id ASC`
     );
 
@@ -277,31 +346,102 @@ class FlashSaleService {
     return mapFlashProduct(result.rows[0]);
   }
 
-  // Admin: matikan event flash sale secara mendadak.
-  // Semua kuota Redis `flash_sale:stock:*` di-set ke 0 sehingga TIER 1 langsung
-  // menolak checkout (tidak menyentuh PostgreSQL).
+  // Admin: matikan event flash sale secara MENDADAK & PERMANEN.
+  // 1. PostgreSQL (otoritas): semua item dikeluarkan dari program flash sale
+  //    (is_flash_sale=FALSE + harga/kuota/jadwal dihapus) — warmup, Redis
+  //    restart, maupun restart server TIDAK bisa menghidupkan kembali.
+  // 2. Redis: key `flash_sale:stock:*` dihapus BEST-EFFORT dalam try/catch —
+  //    kalau Redis down, killswitch tetap berhasil (DB sudah final).
   static async killswitchFlashSale() {
-    const keys = [];
-    let cursor = '0';
-    do {
-      const [nextCursor, foundKeys] = await redis.scan(cursor, 'MATCH', `${STOCK_KEY_PREFIX}*`, 'COUNT', 100);
-      cursor = nextCursor;
-      keys.push(...foundKeys);
-    } while (cursor !== '0');
+    const updateResult = await db.query(
+      `UPDATE products
+       SET is_flash_sale = FALSE,
+           flash_sale_price = NULL,
+           flash_sale_stock = NULL,
+           flash_sale_start = NULL,
+           flash_sale_end = NULL
+       WHERE is_flash_sale = TRUE AND flash_sale_price IS NOT NULL`
+    );
 
-    if (keys.length > 0) {
-      const pipeline = redis.pipeline();
-      for (const key of keys) {
-        pipeline.set(key, 0);
+    const killed = updateResult.rowCount || 0;
+
+    try {
+      const keys = [];
+      let cursor = '0';
+      do {
+        const [nextCursor, foundKeys] = await redis.scan(cursor, 'MATCH', `${STOCK_KEY_PREFIX}*`, 'COUNT', 100);
+        cursor = nextCursor;
+        keys.push(...foundKeys);
+      } while (cursor !== '0');
+
+      if (keys.length > 0) {
+        const pipeline = redis.pipeline();
+        for (const key of keys) {
+          pipeline.del(key);
+        }
+        const execResults = await pipeline.exec();
+        const failedCount = execResults.filter(([err]) => err).length;
+        if (failedCount > 0) {
+          console.warn(`[flashsale] killswitch: ${failedCount}/${keys.length} keys failed to delete`);
+        }
       }
-      const execResults = await pipeline.exec();
-      const failedCount = execResults.filter(([err]) => err).length;
-      if (failedCount > 0) {
-        console.warn(`[flashsale] killswitch: ${failedCount}/${keys.length} keys failed to write`);
-      }
+    } catch (err) {
+      // Redis down — DB sudah final, tidak perlu gagalkan killswitch.
+      console.warn(`[flashsale] killswitch: Redis cleanup skipped: ${err.message}`);
     }
 
-    return { killed: keys.length };
+    return { killed };
+  }
+
+  // Admin: MULAI flash sale sekarang dengan durasi tertentu (menit).
+  // Semua item flash sale yang terkonfigurasi mendapat jendela:
+  //   flash_sale_start = NOW(), flash_sale_end = NOW() + durationMinutes
+  // Lalu kuota Redis langsung di-warmup agar TIER 1 pre-check berfungsi.
+  static async startFlashSale(durationMinutes) {
+    // Item yang sudah berakhir tidak boleh hidup lagi — "Mulai Sekarang" hanya
+    // mengaktifkan produk yang masih terkonfigurasi (belum expired/killswitch).
+    await FlashSaleService.expireEndedFlashSales();
+
+    const updateResult = await db.query(
+      `UPDATE products
+       SET flash_sale_start = NOW(),
+           flash_sale_end = NOW() + make_interval(mins => $1)
+       WHERE is_flash_sale = TRUE AND flash_sale_price IS NOT NULL
+       RETURNING id`,
+      [durationMinutes]
+    );
+
+    const started = updateResult.rowCount || 0;
+    if (started === 0) {
+      throw new AppError(
+        'No flash sale items configured yet. Add at least one product first.',
+        422,
+        'NO_FLASH_SALE_ITEMS'
+      );
+    }
+
+    // Warmup kuota Redis (graceful: gagal tidak fatal).
+    let warmup;
+    try {
+      warmup = await FlashSaleService.warmupFlashSaleStock();
+    } catch (err) {
+      console.warn(`[flashsale] startFlashSale: warmup failed: ${err.message}`);
+    }
+
+    // Ambil jendela sesi yang baru dibuat untuk respons frontend.
+    const sessionResult = await db.query(
+      `SELECT MIN(flash_sale_start) AS start_time, MAX(flash_sale_end) AS end_time
+       FROM products
+       WHERE is_flash_sale = TRUE AND flash_sale_price IS NOT NULL`
+    );
+    const session = sessionResult.rows[0] || {};
+
+    return {
+      started,
+      startTime: session.start_time || null,
+      endTime: session.end_time || null,
+      warmed: warmup ? warmup.warmed : 0,
+    };
   }
 
   static async _safeRedisSet(key, value) {

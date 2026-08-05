@@ -15,7 +15,7 @@ Dokumen ini adalah **sumber kebenaran tunggal (single source of truth)** untuk t
 **Professional Minimal** — bersih, tenang, dan profesional. Fokus pada keterbacaan dan kepercayaan, tanpa dekorasi berlebihan.
 
 Karakteristik:
-- Latar terang netral `#FAFBFC`, konten di atas surface putih.
+- Latar terang netral `#FAFBFC`, konten di atas surface abu-abu terang `#EBEBEB`.
 - Aksen biru `#2563EB` dipakai hemat: CTA utama, tautan, elemen aktif.
 - Merah `#DC2626` hanya untuk diskon flash sale, harga coret, dan error/danger.
 - Hierarki dibangun lewat tipografi dan spasi, bukan kotak/garis yang ramai.
@@ -36,7 +36,7 @@ Karakteristik:
 | Token | Nilai | Penggunaan |
 |---|---|---|
 | `--bg` | `#FAFBFC` | Latar halaman |
-| `--surface` | `#FFFFFF` | Kartu, panel, formulir |
+| `--surface` | `#EBEBEB` | Kartu, panel, formulir (abu-abu terang) |
 | `--fg` | `#0F172A` | Teks utama, judul |
 | `--muted` | `#64748B` | Teks sekunder, deskripsi |
 | `--border` | `#E2E8F0` | Garis tepi |
@@ -73,23 +73,23 @@ Karakteristik:
 | `--table-hover` | `#FAFBFC` | Hover baris tabel |
 | `--overlay` | `rgba(15,23,42,.4)` | Latar modal |
 
-### 3.2 Tema Gelap (opsional, dua mekanisme — lihat §7)
+### 3.2 Tema Gelap (`:root[data-theme="dark"]`)
 
 | Token | Nilai |
 |---|---|
-| `--bg` | `#0F172A` |
-| `--surface` | `#1E293B` |
+| `--bg` | `#0A0F1A` |
+| `--surface` | `#111927` |
 | `--fg` | `#F1F5F9` |
 | `--muted` | `#94A3B8` |
 | `--border` | `#334155` |
-| `--accent` | `#60A5FA` |
-| `--accent-hover` | `#3B82F6` |
-| `--on-accent` | `#0F172A` |
-| `--danger` | `#F87171` |
-| `--danger-hover` | `#EF4444` |
-| `--on-danger` | `#0F172A` |
-| `--success` | `#34D399` |
-| `--warning` | `#FBBF24` |
+| `--accent` | `#2563EB` |
+| `--accent-hover` | `#1D4ED8` |
+| `--on-accent` | `#FFFFFF` |
+| `--danger` | `#DC2626` |
+| `--danger-hover` | `#B91C1C` |
+| `--on-danger` | `#FFFFFF` |
+| `--success` | `#059669` |
+| `--warning` | `#D97706` |
 | `--accent-soft` | `rgba(59,130,246,.16)` |
 | `--success-soft` | `rgba(5,150,105,.16)` |
 | `--warning-soft` | `rgba(217,119,6,.16)` |
@@ -97,7 +97,7 @@ Karakteristik:
 | `--danger-soft` | `rgba(220,38,38,.16)` |
 | `--disabled-bg` | `#334155` |
 | `--disabled-fg` | `#64748B` |
-| `--navbar-bg` | `rgba(15,23,42,.85)` |
+| `--navbar-bg` | `rgba(13, 18, 31, 0.85)` |
 | `--placeholder` | `#64748B` |
 | `--ph-bg` | `rgba(148,163,184,.1)` |
 | `--ph-fg` | `#64748B` |
@@ -171,7 +171,7 @@ Karakteristik:
 Diterapkan pada prototipe, WAJIB dipertahankan di versi berikutnya:
 
 1. **Tidak ada emoji.** Semua ikon adalah inline SVG (stroke tipis, ukuran konsisten).
-2. **Tidak ada gradien.** Warna solid datar; permukaan statis gelap memakai warna solid (`#0F172A` / `#DC2626`).
+2. **Tidak ada gradien dekoratif.** Warna solid datar; permukaan statis gelap memakai warna solid (`#0F172A` / `#DC2626`). Pengecualian: gradient overlay fungsional untuk kontras teks di atas gambar (misal `.hero-bg-overlay`), bukan dekorasi.
 3. **Tidak ada em-dash (—) atau ellipsis (...) di copy.** Gunakan bahasa biasa dan titik/dua titik.
 4. **Tidak ada klaim berlebihan di copy** ("best", "amazing", dll). Bahasa to-the-point.
 5. **Tidak ada footer versi/credit** ("© 2026 ... v1.0.0", "Made with ❤", dll).
@@ -179,13 +179,10 @@ Diterapkan pada prototipe, WAJIB dipertahankan di versi berikutnya:
 
 ## 7. Mode Gelap
 
-Dua mekanisme, diimplementasikan di akhir `style.css`:
+Satu mekanisme manual: `<html data-theme="dark">` memaksa gelap, `<html data-theme="light">` memaksa terang.
 
-1. **Otomatis** — `@media (prefers-color-scheme: dark)` menimpa `:root:not([data-theme="light"])`.
-2. **Manual** — `<html data-theme="dark">` memaksa gelap, `<html data-theme="light">` memaksa terang (menimpa preferensi OS).
-
-Aturan penting:
-- Kedua blok berisi token **identik** — jangan ubah satu tanpa mengubah yang lain.
+- Tidak ada deteksi `@media (prefers-color-scheme: dark)` — mode gelap hanya aktif saat user toggle.
+- Selector: `:root[data-theme="dark"]`.
 - Elemen statis (hero, flash-banner) tetap gelap di kedua tema — tidak ikut token.
 - `color-scheme: dark` diset di blok gelap agar native controls ikut gelap.
 
@@ -196,15 +193,26 @@ Breakpoint tunggal **`max-width: 768px`**:
 | Area | Perilaku di mobile |
 |---|---|
 | `.navbar-links` | Disembunyikan (`.navbar-auth` tetap tampil) |
-| `.product-grid` | `minmax(160px, 1fr)` + `gap 0.85rem` |
+| `.navbar-hamburger` | Muncul, buka panel `.navbar-mobile` penuh |
+| `.dashboard-desktop-only` | Disembunyikan (`display: none`) |
+| `.product-grid` | `repeat(auto-fill, minmax(160px, 1fr))` + `gap 0.85rem` |
 | `.product-detail` | Grid 2 kolom → 1 kolom, `gap 1.5rem` |
-| `.admin-layout` | Kolom (sidebar jadi bar horizontal atas) |
-| `.sidebar` | Lebar 100%, `flex-direction: row`, brand & footer disembunyikan |
+| `.category-grid` | `grid-template-columns: repeat(2, 1fr)` |
+| `.admin-layout` | Sidebar jadi fixed drawer (`position: fixed; transform: translateX(-100%)`) |
+| `.admin-sidebar` | Fixed drawer, buka via `.open`, overlay `.admin-sidebar-overlay` |
+| `.admin-topbar` | Muncul: sticky top bar dengan hamburger `.admin-hamburger` |
+| `.admin-main` | Padding `1rem` |
 | `.stat-grid` | 4 → 2 kolom |
+| `.cart-layout` | Single column (`.cart-summary` full width) |
+| `.cart-header` | Stacks vertically |
 | `.cart-item .ph-img` | 80px → 60px |
-| `.hero` | Padding `2.5rem 1rem` |
+| `.checkout-layout` | Single column |
+| `.filter-bar` | Vertical layout, full width, select max-width: none |
+| `.user-dropdown-menu` | `right: -0.5rem; min-width: 200px` |
+| `.hero` | Padding `3.5rem 1rem 2.5rem` |
 | `.footer-inner` | Kolom, rata tengah |
 | `.invoice-card` | Padding `1.25rem` |
+| `.navbar-inner` | Padding `0.65rem 1rem` |
 
 Juga ada container query `@container (min-width: 700px)` untuk `.product-detail` (grid 2 kolom) — pertahankan saat diporting.
 
@@ -217,18 +225,19 @@ Juga ada container query `@container (min-width: 700px)` untuk `.product-detail`
 | Kartu | `.card`, `.card-flat` | Radius md, hover naik ke `--shadow-md` |
 | Badge | `.badge`, `.badge-danger`, `.badge-success`, `.badge-warning`, `.badge-neutral` | Pakai warna solid + `--on-*` untuk kontras |
 | Formulir | `.form-group`, `.form-label`, `.form-input`, `.form-input-error`, `.form-error` | Focus pakai `--ring-accent`; error pakai `--danger` + ring |
-| Grid produk | `.product-grid`, `.product-card`, `.product-card-body` | `repeat(auto-fill, minmax(200px, 1fr))` |
+| Grid produk | `.product-grid`, `.product-card`, `.product-card-body` | `repeat(auto-fill, minmax(280px, 1fr))` |
 | Harga | `.product-price`, `.price-current`, `.price-original` | Mono; coret utk diskon |
 | Countdown | `.countdown`, `.countdown-label` | Mono, separator `:` |
 | Stok bar | `.stock-bar`, `.stock-bar-fill` (+`.danger`/`.warning`), `.stock-text` | Fill hijau/amber/merah |
 | Toast | `.toast`, `.toast-success`, `.toast-error` | Border + soft bg + fg khusus |
 | Footer | `.footer`, `.footer-inner` | Simpel, muted |
-| Admin layout | `.admin-layout`, `.sidebar`, `.sidebar-link`(+`.active`), `.sidebar-divider`, `.admin-main` | Sidebar kiri 220px |
+| Admin layout | `.admin-layout`, `.admin-sidebar`, `.sidebar-nav`, `.sidebar-link`(+`.active`), `.sidebar-divider`, `.admin-main`, `.admin-topbar`, `.admin-hamburger`, `.admin-sidebar-overlay` | Sidebar kiri 260px, sticky; mobile: fixed drawer dengan overlay |
+| Admin sidebar footer | `.sidebar-footer`, `.sidebar-footer-user`, `.sidebar-footer-name`, `.sidebar-footer-email` | `margin-top: auto`, sticky bottom |
 | Statistik | `.stat-grid`, `.stat-card`, `.stat-value`, `.stat-label`, `.stat-trend`(+`.up`/`.down`) | Nilai mono, tren sukses/danger |
 | Tabel | `.table-wrap` | Hover baris `--table-hover` |
 | Modal | `.modal-overlay`(+`.open`), `.modal-content`, `.modal-header`, `.modal-close`, `.modal-footer` | Overlay `--overlay` |
 | Auth tabs | `.auth-tabs`, `.auth-tab`(+`.active`) | Login/daftar switch |
-| Hero | `.hero`, `.hero-content` | Latar statis `#0F172A`, teks putih, countdown glassy |
+| Hero | `.hero`, `.hero-content`, `.hero-bg`, `.hero-bg-img`, `.hero-bg-overlay` | Latar statis `#0F172A` + gambar + gradient overlay fungsional untuk kontras teks, teks putih, countdown glassy. `h1`: `clamp(2rem, 5vw, 3rem)` |
 | Detail produk | `.product-detail`, `.product-gallery`, `.product-info`, `.product-prices`, `.product-desc` | 2 kolom desktop |
 | Order summary | `.order-summary`, `.summary-row`, `.summary-total` | Panel maks 480px, total mono |
 | Invoice | `.invoice-card`, `.invoice-icon`(+`.success`), `.invoice-header`, `.invoice-id`, `.invoice-details`, `.invoice-row`, `.invoice-total` | Ikon sukses pakai `--success-soft` |
@@ -238,6 +247,19 @@ Juga ada container query `@container (min-width: 700px)` untuk `.product-detail`
 | Flash banner | `.flash-banner` | Latar statis `#DC2626`, teks putih |
 | Placeholder gambar | `.ph-img` | `--ph-bg`/`--ph-fg`; produk aspect-ratio 1:1 |
 | Spinner | `.spinner`, `.spinner-lg` | Untuk loading state |
+| Navbar dropdown | `.navbar-dropdown`, `.navbar-dropdown-trigger`, `.navbar-dropdown-menu`, `.navbar-dropdown-item` | Hover + click-toggle (produkHoverRef guard), chevron rotate saat open |
+| Navbar mobile | `.navbar-hamburger`, `.navbar-mobile`, `.navbar-mobile-user`, `.navbar-mobile-user-name`, `.navbar-mobile-user-email`, `.navbar-mobile-btn`, `.navbar-mobile-logout` | Hanya tampil di mobile; panel penuh |
+| Mobile accordion | `.navbar-mobile-accordion-trigger`, `.navbar-mobile-accordion-content`, `.navbar-mobile-submenu-item`, `.navbar-mobile-accordion-chevron` | Sub-menu Produk di mobile pakai accordion |
+| Theme toggle | `.theme-toggle` | Tombol 2.25rem, border, surface bg, icon sun/moon |
+| User dropdown | `.navbar-user-area`, `.user-dropdown`, `.user-dropdown-btn`, `.user-dropdown-menu`, `.user-dropdown-info`, `.user-dropdown-name`, `.user-dropdown-email`, `.user-dropdown-divider`, `.user-dropdown-logout` | Tombol bulat avatar, menu absolut kanan, animasi `dropdownIn` |
+| Dashboard mobile | `.dashboard-desktop-only` | Link Dashboard admin, hidden di mobile |
+| Cart layout | `.cart-layout`, `.cart-items-col`, `.cart-header`, `.cart-item-actions`, `.cart-item-total` | Grid 2 kolom (1fr + 360px), single column di mobile |
+| Pagination | `.pagination`, `.pagination-btn`, `.pagination-btn.active` | Tombol numbered, aktif pakai accent bg |
+| Filter bar | `.filter-bar` | Flex wrap, form-input max 320px, vertical di mobile |
+| Checkout layout | `.checkout-layout`, `.payment-option`, `.payment-option.selected`, `.payment-option-radio` | Grid 2 kolom (1fr + 380px), radio button custom, selected accent border |
+| Category grid | `.category-grid`, `.category-card`, `.category-card-active`, `.category-card-icon`, `.category-card-count` | 4 kolom desktop, 2 kolom mobile |
+| Product meta | `.product-meta` | Flex between, margin-top 0.5rem |
+| Button small | `.btn-sm` | Padding 0.35rem 0.75rem, font 0.8rem |
 
 ## 10. Halaman Prototipe (7 halaman)
 
@@ -257,7 +279,7 @@ Sebelum menyatakan versi Next.js "selesai" secara visual, wajib lolos:
 
 1. **Token match** — setiap nilai di kode Next.js identik dengan tabel §3–§5 (boleh dipindah ke Tailwind config / CSS module, tetapi nilainya tidak berubah).
 2. **Pemeriksaan visual per halaman** — bandingkan semua 7 halaman prototipe dengan halaman Next.js pada viewport desktop (≥1024px) dan mobile (≤768px).
-3. **Dark mode** — kedua mekanisme (OS + `data-theme`) bekerja identik dengan prototipe.
+3. **Dark mode** — toggle manual `data-theme="dark"` bekerja identik dengan prototipe.
 4. **Interaksi** — hover, focus ring, disabled, loading, modal open, qty stepper, tabs: perilaku visual sama.
 5. **Copy** — teks identik dengan prototipe (anti-slop: tanpa emoji/em-dash/klaim berlebihan).
 

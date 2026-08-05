@@ -29,6 +29,12 @@ CREATE TABLE users (
     email VARCHAR(150) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(20) DEFAULT 'USER' CHECK (role IN ('USER', 'ADMIN')),
+    -- Kredensial profil pengguna (diisi via halaman /profile, dipakai auto-fill checkout).
+    phone VARCHAR(20),
+    address TEXT,
+    city VARCHAR(100),
+    province VARCHAR(100),
+    postal_code VARCHAR(10),
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -146,10 +152,14 @@ DECLARE
     v_price DECIMAL(12, 2);
     v_flash_price DECIMAL(12, 2);
     v_is_flash BOOLEAN;
+    v_flash_start TIMESTAMPTZ;
+    v_flash_end TIMESTAMPTZ;
     v_order_id INT;
 BEGIN
-    SELECT stock, flash_sale_stock, price, flash_sale_price, is_flash_sale
-    INTO v_stock, v_flash_stock, v_price, v_flash_price, v_is_flash
+    SELECT stock, flash_sale_stock, price, flash_sale_price, is_flash_sale,
+           flash_sale_start, flash_sale_end
+    INTO v_stock, v_flash_stock, v_price, v_flash_price, v_is_flash,
+         v_flash_start, v_flash_end
     FROM products
     WHERE id = p_product_id
     FOR UPDATE;
@@ -164,6 +174,16 @@ BEGIN
 
     IF v_flash_price IS NULL THEN
         RAISE EXCEPTION 'FLASH_PRICE_NOT_SET';
+    END IF;
+
+    -- Validasi jendela waktu flash sale (hanya bila item dijadwalkan):
+    -- checkout di luar [flash_sale_start, flash_sale_end] ditolak ATOMIK di
+    -- database — integritas durasi & killswitch tidak bergantung pada Redis.
+    IF v_flash_start IS NOT NULL AND NOW() < v_flash_start THEN
+        RAISE EXCEPTION 'FLASH_SALE_NOT_ACTIVE';
+    END IF;
+    IF v_flash_end IS NOT NULL AND NOW() > v_flash_end THEN
+        RAISE EXCEPTION 'FLASH_SALE_NOT_ACTIVE';
     END IF;
 
     -- Stok flash sale habis / belum dialokasikan → OUT_OF_STOCK.
@@ -190,6 +210,118 @@ BEGIN
 
     INSERT INTO order_items (order_id, product_id, quantity, price_at_purchase)
     VALUES (v_order_id, p_product_id, p_quantity, v_flash_price);
+
+    RETURN v_order_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- =============================================================================
+-- 6. Atomic Stored Procedure: create_cart_order
+-- Engine checkout keranjang REGULER (non-flash-sale) yang aman terhadap race
+-- condition (zero-oversell), mirroring buy_flash_sale_item:
+--   * Row-Level Locking (SELECT ... FOR UPDATE) pada baris produk.
+--   * Guard cart kosong (EMPTY_CART).
+--   * Validasi keberadaan produk (PRODUCT_NOT_FOUND) & stok (OUT_OF_STOCK).
+--   * Total dihitung SERVER-SIDE (SUM price * qty dari cart), bukan client.
+--   * Decrement stok atomik `stock = stock - qty` di database.
+--   * Order header + order_items (price_at_purchase = harga reguler) + hapus
+--     item cart dalam satu transaksi implisit.
+-- Return: id order yang baru dibuat.
+-- =============================================================================
+CREATE OR REPLACE FUNCTION create_cart_order(
+    p_user_id INT,
+    p_product_ids INT[],
+    p_shipping_name VARCHAR(100),
+    p_shipping_phone VARCHAR(20),
+    p_shipping_address TEXT,
+    p_shipping_city VARCHAR(100),
+    p_shipping_province VARCHAR(100),
+    p_shipping_postal_code VARCHAR(20),
+    p_shipping_note TEXT,
+    p_payment_method VARCHAR(30)
+) RETURNS INT AS $$
+DECLARE
+    v_cart_id INT;
+    v_product_id INT;
+    v_quantity INT;
+    v_price DECIMAL(12, 2);
+    v_stock INT;
+    v_total DECIMAL(12, 2) := 0;
+    v_order_id INT;
+BEGIN
+    -- Guard: daftar produk kosong / NULL → EMTPY_CART.
+    IF p_product_ids IS NULL OR COALESCE(array_length(p_product_ids, 1), 0) = 0 THEN
+        RAISE EXCEPTION 'EMPTY_CART';
+    END IF;
+
+    -- Ambil cart milik user (pola sama dengan cart.service.getOrCreateCart).
+    SELECT id INTO v_cart_id
+    FROM carts
+    WHERE user_id = p_user_id
+    ORDER BY id ASC
+    LIMIT 1;
+
+    IF v_cart_id IS NULL THEN
+        RAISE EXCEPTION 'EMPTY_CART';
+    END IF;
+
+    -- Iterasi tiap produk: row-lock, validasi keberadaan + stok, hitung total,
+    -- dan decrement stok atomik — SEMUA dalam satu transaksi implisit.
+    FOREACH v_product_id IN ARRAY p_product_ids
+    LOOP
+        SELECT price, stock INTO v_price, v_stock
+        FROM products
+        WHERE id = v_product_id
+        FOR UPDATE;
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'PRODUCT_NOT_FOUND';
+        END IF;
+
+        -- Quantity yang dibeli = quantity di cart user (BUKAN kalkulasi client).
+        SELECT quantity INTO v_quantity
+        FROM cart_items
+        WHERE cart_id = v_cart_id AND product_id = v_product_id;
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'PRODUCT_NOT_FOUND';
+        END IF;
+
+        IF v_stock < v_quantity THEN
+            RAISE EXCEPTION 'OUT_OF_STOCK';
+        END IF;
+
+        v_total := v_total + (v_price * v_quantity);
+
+        UPDATE products
+        SET stock = stock - v_quantity
+        WHERE id = v_product_id;
+    END LOOP;
+
+    INSERT INTO orders (
+        user_id, total_amount, status,
+        shipping_name, shipping_phone, shipping_address, shipping_city,
+        shipping_province, shipping_postal_code, shipping_note, payment_method
+    )
+    VALUES (
+        p_user_id, v_total, 'PAID',
+        p_shipping_name, p_shipping_phone, p_shipping_address, p_shipping_city,
+        p_shipping_province, p_shipping_postal_code, p_shipping_note, p_payment_method
+    )
+    RETURNING id INTO v_order_id;
+
+    -- Order items: price_at_purchase = harga REGULER produk saat transaksi
+    -- (bukan flash price). JOIN cart_items agar quantity konsisten dengan yang
+    -- divalidasi di loop pertama (baris produk masih di-lock sampai COMMIT).
+    INSERT INTO order_items (order_id, product_id, quantity, price_at_purchase)
+    SELECT v_order_id, ci.product_id, ci.quantity, p.price
+    FROM cart_items ci
+    JOIN products p ON p.id = ci.product_id
+    WHERE ci.cart_id = v_cart_id AND ci.product_id = ANY(p_product_ids);
+
+    -- Hapus HANYA item yang dibeli dari cart user.
+    DELETE FROM cart_items
+    WHERE cart_id = v_cart_id AND product_id = ANY(p_product_ids);
 
     RETURN v_order_id;
 END;

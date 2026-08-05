@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ByteCommerce - Profil Saya</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .profile-tabs { margin-bottom: 0; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .password-field-wrap { position: relative; }
+    .password-toggle {
+      position: absolute;
+      right: 0.65rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      padding: 0.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color var(--transition);
+    }
+    .password-toggle:hover { color: var(--fg); }
+    .password-rules {
+      list-style: none;
+      padding: 0;
+      margin: 0.5rem 0 0;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .password-rules li {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-bottom: 0.25rem;
+    }
+    .password-rules li.met { color: var(--success); }
+    .password-rules li svg { flex-shrink: 0; }
+    .profile-toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 300;
+      display: none;
+      max-width: 360px;
+      width: calc(100% - 3rem);
+    }
+    .profile-toast.show { display: flex; }
+    @media (max-width: 768px) {
+      .profile-toast { bottom: 1rem; right: 1rem; left: 1rem; max-width: none; width: auto; }
+      .form-select-wrap select { max-width: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== NAVBAR ===== -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <a href="home.html" class="navbar-brand" aria-label="ByteCommerce">
+        <svg viewBox="0 0 560 84" role="img" aria-label="ByteCommerce" xmlns="http://www.w3.org/2000/svg">
+          <rect x="24" y="14" width="96" height="18" rx="9" style="fill:var(--fg)"/>
+          <rect x="28" y="28" width="88" height="52" rx="11" style="fill:var(--accent)"/>
+          <rect x="52" y="44" width="40" height="8" rx="4" style="fill:var(--on-accent)"/>
+          <rect x="52" y="62" width="26" height="8" rx="4" style="fill:var(--on-accent)"/>
+          <text x="150" y="70" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="52" font-weight="700" letter-spacing="-1" textLength="330" lengthAdjust="spacingAndGlyphs"><tspan style="fill:var(--fg)">Byte</tspan><tspan style="fill:var(--accent)">Commerce</tspan></text>
+        </svg>
+      </a>
+      <ul class="navbar-links">
+        <li><a href="home.html">Beranda</a></li>
+        <li><a href="#">Produk</a></li>
+        <li><a href="#">Flash Sale</a></li>
+        <li><a href="#">Bantuan</a></li>
+      </ul>
+      <div class="navbar-auth">
+        <a href="auth.html" class="btn btn-ghost" style="color:var(--fg)">Masuk</a>
+        <a href="auth.html" class="btn btn-primary">Daftar</a>
+      </div>
+    </div>
+  </nav>
+
+
+  <!-- ===== PAGE CONTENT ===== -->
+  <main class="page">
+    <div class="container" style="max-width: 640px;">
+
+      <!-- Breadcrumb -->
+      <nav class="breadcrumb" data-od-id="breadcrumb">
+        <a href="home.html">Beranda</a> / <span>Profil</span>
+      </nav>
+
+      <!-- Heading -->
+      <div class="mb-3" data-od-id="heading">
+        <h1 style="margin-bottom: 0.35rem;">Profil Saya</h1>
+        <p class="text-muted" style="font-size: 0.95rem;">Kelola data pribadi, keamanan, dan alamat pengiriman Anda.</p>
+      </div>
+
+      <!-- Tabs -->
+      <div class="auth-tabs profile-tabs" data-od-id="tabs" role="tablist">
+        <button class="auth-tab active" role="tab" aria-selected="true" data-tab="profil" id="tab-profil" aria-controls="panel-profil">Profil</button>
+        <button class="auth-tab" role="tab" aria-selected="false" data-tab="keamanan" id="tab-keamanan" aria-controls="panel-keamanan">Keamanan</button>
+        <button class="auth-tab" role="tab" aria-selected="false" data-tab="alamat" id="tab-alamat" aria-controls="panel-alamat">Alamat</button>
+      </div>
+
+      <!-- ==============================
+           TAB 1: DATA PRIBADI
+           ============================== -->
+      <div class="tab-panel active card" style="padding: 1.5rem; border-top-left-radius: 0;" id="panel-profil" role="tabpanel" aria-labelledby="tab-profil" data-od-id="panel-profil">
+        <form id="form-profil" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="profil-nama">Nama Lengkap</label>
+            <input class="form-input" type="text" id="profil-nama" value="Budi Santoso" required>
+            <p class="form-error">Nama lengkap wajib diisi</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="profil-email">Email</label>
+            <input class="form-input" type="email" id="profil-email" value="budi.santoso@email.com" required>
+            <p class="form-error">Format email tidak valid</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="profil-telp">Nomor Telepon</label>
+            <input class="form-input" type="tel" id="profil-telp" value="+62 812-3456-7890" placeholder="+62 8XX-XXXX-XXXX" required>
+            <p class="form-error">Nomor telepon tidak valid. Gunakan format +62</p>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="margin-top: 0.5rem;">
+            <span class="btn-text">Simpan Perubahan</span>
+            <span class="spinner"></span>
+          </button>
+        </form>
+      </div>
+
+      <!-- ==============================
+           TAB 2: GANTI PASSWORD
+           ============================== -->
+      <div class="tab-panel card" style="padding: 1.5rem; border-top-left-radius: 0;" id="panel-keamanan" role="tabpanel" aria-labelledby="tab-keamanan" data-od-id="panel-keamanan">
+        <form id="form-password" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="pw-lama">Password Lama</label>
+            <div class="password-field-wrap">
+              <input class="form-input" type="password" id="pw-lama" placeholder="Masukkan password lama" required style="padding-right: 2.5rem;">
+              <button type="button" class="password-toggle" data-target="pw-lama" aria-label="Tampilkan password">
+                <svg class="eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
+            <p class="form-error">Password lama wajib diisi</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="pw-baru">Password Baru</label>
+            <div class="password-field-wrap">
+              <input class="form-input" type="password" id="pw-baru" placeholder="Min. 8 karakter" required style="padding-right: 2.5rem;">
+              <button type="button" class="password-toggle" data-target="pw-baru" aria-label="Tampilkan password">
+                <svg class="eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
+            <p class="form-error">Password baru wajib diisi</p>
+            <ul class="password-rules" id="pw-rules">
+              <li data-rule="length">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="20 6 9 17 4 12"/></svg>
+                Minimal 8 karakter
+              </li>
+              <li data-rule="upper">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="20 6 9 17 4 12"/></svg>
+                Mengandung huruf besar
+              </li>
+              <li data-rule="number">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="20 6 9 17 4 12"/></svg>
+                Mengandung angka
+              </li>
+            </ul>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="pw-konfirmasi">Konfirmasi Password Baru</label>
+            <div class="password-field-wrap">
+              <input class="form-input" type="password" id="pw-konfirmasi" placeholder="Ulangi password baru" required style="padding-right: 2.5rem;">
+              <button type="button" class="password-toggle" data-target="pw-konfirmasi" aria-label="Tampilkan password">
+                <svg class="eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
+            <p class="form-error">Konfirmasi password tidak cocok</p>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="margin-top: 0.5rem;">
+            <span class="btn-text">Ubah Password</span>
+            <span class="spinner"></span>
+          </button>
+        </form>
+      </div>
+
+      <!-- ==============================
+           TAB 3: ALAMAT PENGIRIMAN
+           ============================== -->
+      <div class="tab-panel card" style="padding: 1.5rem; border-top-left-radius: 0;" id="panel-alamat" role="tabpanel" aria-labelledby="tab-alamat" data-od-id="panel-alamat">
+        <form id="form-alamat" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="almt-alamat">Alamat Lengkap</label>
+            <input class="form-input" type="text" id="almt-alamat" value="Jl. Sudirman No. 45" placeholder="Jalan, nomor, RT/RW" required>
+            <p class="form-error">Alamat wajib diisi</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="almt-kota">Kota</label>
+            <input class="form-input" type="text" id="almt-kota" value="Jakarta" placeholder="Nama kota" required>
+            <p class="form-error">Kota wajib diisi</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="almt-kodepos">Kode Pos</label>
+            <input class="form-input" type="text" id="almt-kodepos" value="12190" placeholder="5 digit" maxlength="5" required>
+            <p class="form-error">Kode pos harus 5 digit angka</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="almt-provinsi">Provinsi</label>
+            <select class="form-input" id="almt-provinsi" required>
+              <option value="">Pilih provinsi</option>
+              <option value="dki-jakarta" selected>DKI Jakarta</option>
+              <option value="jawa-barat">Jawa Barat</option>
+              <option value="banten">Banten</option>
+              <option value="jawa-timur">Jawa Timur</option>
+              <option value="jawa-tengah">Jawa Tengah</option>
+            </select>
+            <p class="form-error">Provinsi wajib dipilih</p>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="margin-top: 0.5rem;">
+            <span class="btn-text">Simpan Alamat</span>
+            <span class="spinner"></span>
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </main>
+
+
+  <!-- ===== TOAST (fixed bottom-right) ===== -->
+  <div class="toast toast-success profile-toast" id="toast-success" role="alert" aria-live="polite">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+      <polyline points="22 4 12 14.01 9 11.01"/>
+    </svg>
+    <span id="toast-message">Perubahan berhasil disimpan.</span>
+  </div>
+
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <span>&copy; 2026 ByteCommerce</span>
+      <span>Powered by Flash Sale Engine</span>
+    </div>
+  </footer>
+
+
+  <!-- ===== SCRIPT ===== -->
+  <script>
+    (function () {
+      'use strict';
+
+      /* ---------------------------
+         Tab switching
+         --------------------------- */
+      var tabs = document.querySelectorAll('[data-tab]');
+      var panels = document.querySelectorAll('.tab-panel');
+
+      function switchTab(tabEl) {
+        var target = tabEl.getAttribute('data-tab');
+        tabs.forEach(function (t) {
+          t.classList.remove('active');
+          t.setAttribute('aria-selected', 'false');
+        });
+        panels.forEach(function (p) { p.classList.remove('active'); });
+
+        tabEl.classList.add('active');
+        tabEl.setAttribute('aria-selected', 'true');
+        var panelId = 'panel-' + target;
+        var panel = document.getElementById(panelId);
+        if (panel) panel.classList.add('active');
+      }
+
+      tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () { switchTab(tab); });
+      });
+
+      /* ---------------------------
+         Show / hide password
+         --------------------------- */
+      document.querySelectorAll('.password-toggle').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var targetId = btn.getAttribute('data-target');
+          var input = document.getElementById(targetId);
+          if (!input) return;
+          var eyeOpen = btn.querySelector('.eye-open');
+          var eyeClosed = btn.querySelector('.eye-closed');
+          if (input.type === 'password') {
+            input.type = 'text';
+            eyeOpen.style.display = 'none';
+            eyeClosed.style.display = 'block';
+          } else {
+            input.type = 'password';
+            eyeOpen.style.display = 'block';
+            eyeClosed.style.display = 'none';
+          }
+        });
+      });
+
+      /* ---------------------------
+         Toast helper
+         --------------------------- */
+      var toastEl = document.getElementById('toast-success');
+      var toastMsg = document.getElementById('toast-message');
+      var toastTimer = null;
+
+      function showToast(message) {
+        if (toastTimer) clearTimeout(toastTimer);
+        toastMsg.textContent = message;
+        toastEl.classList.add('show');
+        toastTimer = setTimeout(function () {
+          toastEl.classList.remove('show');
+          toastTimer = null;
+        }, 3000);
+      }
+
+      /* ---------------------------
+         Validation helpers
+         --------------------------- */
+      function clearErrors(form) {
+        form.querySelectorAll('.form-input').forEach(function (inp) {
+          inp.classList.remove('form-input-error');
+        });
+      }
+
+      function markError(input) {
+        input.classList.add('form-input-error');
+      }
+
+      function isValidEmail(v) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+      }
+
+      function isValidPhone(v) {
+        return /^\+62[\s\-]?\d{3}[\s\-]?\d{3,4}[\s\-]?\d{3,4}$/.test(v.replace(/\s/g, ''));
+      }
+
+      function isValidKodePos(v) {
+        return /^\d{5}$/.test(v);
+      }
+
+      /* ---------------------------
+         Profile form validation
+         --------------------------- */
+      var formProfil = document.getElementById('form-profil');
+      formProfil.addEventListener('submit', function (e) {
+        e.preventDefault();
+        clearErrors(formProfil);
+        var valid = true;
+
+        var nama = document.getElementById('profil-nama');
+        if (!nama.value.trim()) { markError(nama); valid = false; }
+
+        var email = document.getElementById('profil-email');
+        if (!isValidEmail(email.value.trim())) { markError(email); valid = false; }
+
+        var telp = document.getElementById('profil-telp');
+        if (!isValidPhone(telp.value.trim())) { markError(telp); valid = false; }
+
+        if (valid) {
+          var btn = formProfil.querySelector('.btn');
+          btn.classList.add('loading');
+          btn.disabled = true;
+          setTimeout(function () {
+            btn.classList.remove('loading');
+            btn.disabled = false;
+            showToast('Profil berhasil diperbarui.');
+          }, 1200);
+        }
+      });
+
+      /* Clear error on input */
+      formProfil.querySelectorAll('.form-input').forEach(function (inp) {
+        inp.addEventListener('input', function () {
+          inp.classList.remove('form-input-error');
+        });
+      });
+
+      /* ---------------------------
+         Password rules live check
+         --------------------------- */
+      var pwBaru = document.getElementById('pw-baru');
+      var pwRules = document.getElementById('pw-rules');
+
+      function updatePwRules() {
+        var v = pwBaru.value;
+        var rules = pwRules.querySelectorAll('li');
+        rules.forEach(function (li) {
+          var rule = li.getAttribute('data-rule');
+          var met = false;
+          if (rule === 'length') met = v.length >= 8;
+          if (rule === 'upper') met = /[A-Z]/.test(v);
+          if (rule === 'number') met = /\d/.test(v);
+          li.classList.toggle('met', met);
+        });
+      }
+
+      pwBaru.addEventListener('input', updatePwRules);
+
+      /* ---------------------------
+         Password form validation
+         --------------------------- */
+      var formPw = document.getElementById('form-password');
+      formPw.addEventListener('submit', function (e) {
+        e.preventDefault();
+        clearErrors(formPw);
+        var valid = true;
+
+        var lama = document.getElementById('pw-lama');
+        if (!lama.value) { markError(lama); valid = false; }
+
+        var baru = document.getElementById('pw-baru');
+        if (baru.value.length < 8) { markError(baru); valid = false; }
+        else if (!/[A-Z]/.test(baru.value)) { markError(baru); valid = false; }
+        else if (!/\d/.test(baru.value)) { markError(baru); valid = false; }
+
+        var konf = document.getElementById('pw-konfirmasi');
+        if (konf.value !== baru.value || !konf.value) { markError(konf); valid = false; }
+
+        if (valid) {
+          var btn = formPw.querySelector('.btn');
+          btn.classList.add('loading');
+          btn.disabled = true;
+          setTimeout(function () {
+            btn.classList.remove('loading');
+            btn.disabled = false;
+            formPw.reset();
+            updatePwRules();
+            showToast('Password berhasil diubah.');
+          }, 1200);
+        }
+      });
+
+      formPw.querySelectorAll('.form-input').forEach(function (inp) {
+        inp.addEventListener('input', function () {
+          inp.classList.remove('form-input-error');
+        });
+      });
+
+      /* ---------------------------
+         Address form validation
+         --------------------------- */
+      var formAlamat = document.getElementById('form-alamat');
+      formAlamat.addEventListener('submit', function (e) {
+        e.preventDefault();
+        clearErrors(formAlamat);
+        var valid = true;
+
+        var alamat = document.getElementById('almt-alamat');
+        if (!alamat.value.trim()) { markError(alamat); valid = false; }
+
+        var kota = document.getElementById('almt-kota');
+        if (!kota.value.trim()) { markError(kota); valid = false; }
+
+        var kodepos = document.getElementById('almt-kodepos');
+        if (!isValidKodePos(kodepos.value.trim())) { markError(kodepos); valid = false; }
+
+        var provinsi = document.getElementById('almt-provinsi');
+        if (!provinsi.value) { markError(provinsi); valid = false; }
+
+        if (valid) {
+          var btn = formAlamat.querySelector('.btn');
+          btn.classList.add('loading');
+          btn.disabled = true;
+          setTimeout(function () {
+            btn.classList.remove('loading');
+            btn.disabled = false;
+            showToast('Alamat pengiriman berhasil disimpan.');
+          }, 1200);
+        }
+      });
+
+      formAlamat.querySelectorAll('.form-input').forEach(function (inp) {
+        inp.addEventListener('input', function () {
+          inp.classList.remove('form-input-error');
+        });
+      });
+
+      /* ---------------------------
+         Hash-based tab on load
+         --------------------------- */
+      var hash = window.location.hash.replace('#', '');
+      if (hash) {
+        var targetTab = document.querySelector('[data-tab="' + hash + '"]');
+        if (targetTab) switchTab(targetTab);
+      }
+
+    })();
+  </script>
+
+</body>
+</html>

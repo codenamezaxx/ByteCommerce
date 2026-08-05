@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ordersApi } from '@/lib/api';
 import { formatRupiah, formatDateTime, getStatusBadge, getStatusLabel } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { PageSpinner } from '@/components/Spinner';
+import PhantomSkeleton from '@/components/PhantomSkeleton';
 
 export default function OrdersPage() {
   const router = useRouter();
@@ -35,7 +35,45 @@ export default function OrdersPage() {
     })();
   }, [user, page]);
 
-  if (authLoading || loading) return <PageSpinner />;
+  if (authLoading || loading) {
+    return (
+      <section className="page">
+        <div className="container">
+          <div className="section-header">
+            <h2>Pesanan Saya</h2>
+          </div>
+
+          <PhantomSkeleton loading animation="shimmer" reveal={0.3} stagger={0.03} count={3} count-gap={16} loading-label="Memuat pesanan">
+            <div className="card" style={{ maxWidth: 560, margin: '0 auto', padding: '1.5rem' }}>
+              {/* ---- Header: id/status ---- */}
+              <div className="invoice-header" style={{ textAlign: 'center' }}>
+                <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '45%', margin: '0 auto 0.5rem' }} />
+                <div className="ph-skeleton-block" style={{ height: '0.85rem', width: '30%', margin: '0 auto' }} />
+              </div>
+
+              <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '1.25rem 0' }} />
+
+              {/* ---- Product lines ---- */}
+              <div className="invoice-row">
+                <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '55%' }} />
+                <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '20%' }} />
+              </div>
+              <div className="invoice-row">
+                <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '50%' }} />
+                <div className="ph-skeleton-block" style={{ height: '0.9rem', width: '25%' }} />
+              </div>
+
+              {/* ---- Total footer ---- */}
+              <div className="invoice-row invoice-total" style={{ borderTop: '1px solid var(--border)', marginTop: '0.5rem', paddingTop: '0.75rem' }}>
+                <div className="ph-skeleton-block" style={{ height: '1.05rem', width: '40%' }} />
+                <div className="ph-skeleton-block" style={{ height: '1.05rem', width: '30%' }} />
+              </div>
+            </div>
+          </PhantomSkeleton>
+        </div>
+      </section>
+    );
+  }
   if (!user) return null;
 
   return (

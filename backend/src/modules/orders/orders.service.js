@@ -3,7 +3,7 @@
 // Semua query parameterized ($1, $2, ...). Dynamic WHERE dibangun dengan array
 // params + placeholder counter — TANPA string concatenation nilai user.
 const db = require('../../config/db');
-const { NotFoundError } = require('../../utils/CustomError');
+const { AppError, NotFoundError } = require('../../utils/CustomError');
 
 const ORDER_COLUMNS =
   'id, user_id, total_amount, status, created_at, ' +
@@ -17,6 +17,64 @@ function mapOrder(row) {
 }
 
 class OrdersService {
+  // Checkout keranjang REGULER (non-flash-sale). Semua logika atomik ada di
+  // Stored Procedure create_cart_order (row-lock FOR UPDATE, zero-oversell,
+  // total & decrement dihitung server-side). Wajib dipanggil dengan
+  // req.user.id (JWT). Redis TIDAK dipakai pada alur ini.
+  // shipping: { name, phone, address, city, province, postalCode, note? }
+  // paymentMethod: 'BANK_TRANSFER' | 'COD' | 'QRIS'
+  static async checkoutCart(userId, productIds, shipping = {}, paymentMethod = 'BANK_TRANSFER') {
+    let result;
+    try {
+      result = await db.query(
+        `SELECT create_cart_order($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) AS order_id`,
+        [
+          userId,
+          productIds,
+          shipping.name,
+          shipping.phone,
+          shipping.address,
+          shipping.city,
+          shipping.province,
+          shipping.postalCode,
+          shipping.note || null,
+          paymentMethod,
+        ]
+      );
+    } catch (err) {
+      // Pesan exception dari RAISE EXCEPTION di PL/pgSQL muncul sebagai err.message.
+      // Mapping SAMA dengan flashsale.service.checkout (lines 108-128).
+      if (err && err.message) {
+        if (err.message === 'OUT_OF_STOCK') {
+          throw new AppError('Product is out of stock', 400, 'OUT_OF_STOCK_DB');
+        }
+        if (err.message === 'PRODUCT_NOT_FOUND') {
+          throw new NotFoundError('Product not found', [], 'PRODUCT_NOT_FOUND');
+        }
+        if (err.message === 'EMPTY_CART') {
+          throw new AppError('Cart is empty', 422, 'VALIDATION_ERROR', [
+            { field: 'productIds', message: 'Your cart is empty' },
+          ]);
+        }
+      }
+      throw err;
+    }
+
+    const orderId = result.rows[0].order_id;
+
+    const orderResult = await db.query(
+      'SELECT id, total_amount, status, payment_method FROM orders WHERE id = $1',
+      [orderId]
+    );
+    const order = orderResult.rows[0];
+    return {
+      orderId: order.id,
+      totalAmount: Number(order.total_amount),
+      status: order.status,
+      paymentMethod: order.payment_method,
+    };
+  }
+
   // List order. Non-admin hanya melihat order miliknya; admin melihat SEMUA order.
   static async list({ userId = null, isAdmin = false, page = 1, limit = 20, status = null } = {}) {
     const offset = (page - 1) * limit;

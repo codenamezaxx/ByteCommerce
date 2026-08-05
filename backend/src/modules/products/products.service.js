@@ -13,13 +13,21 @@ const PRODUCT_COLUMNS =
 
 // pg mengembalikan DECIMAL/NUMERIC sebagai string — normalisasi ke Number untuk JSON.
 // image_url di DB menyimpan KEY file; direspons sebagai path publik (/uploads/products/..).
+// Defensif: produk yang flash_sale_end-nya SUDAH LEWAT tidak boleh menampilkan
+// harga/kuota flash — diskon dianggap berakhir (lapisan tambahan selain
+// auto-ekspirasi di FlashSaleService, untuk response baca apa pun).
 function mapProduct(row) {
   if (!row) return row;
+  const expired =
+    row.flash_sale_end !== null &&
+    row.flash_sale_end !== undefined &&
+    new Date(row.flash_sale_end) <= new Date();
   return {
     ...row,
     price: Number(row.price),
-    flash_sale_price: row.flash_sale_price !== null ? Number(row.flash_sale_price) : null,
-    flash_sale_stock: row.flash_sale_stock !== null ? Number(row.flash_sale_stock) : null,
+    flash_sale_price: expired ? null : row.flash_sale_price !== null ? Number(row.flash_sale_price) : null,
+    flash_sale_stock: expired ? null : row.flash_sale_stock !== null ? Number(row.flash_sale_stock) : null,
+    is_flash_sale: expired ? false : row.is_flash_sale,
     image_url: row.image_url ? storageService.getPublicPath(row.image_url) : null,
   };
 }
@@ -39,7 +47,15 @@ class ProductsService {
       idx += 1;
     }
     if (flashSale !== null) {
-      conditions.push(`is_flash_sale = $${idx}`);
+      if (flashSale === true || flashSale === 'true') {
+        // Filter flash sale HANYA item dalam jendela aktif — produk yang
+        // flash_sale_end-nya lewat tidak ikut daftar (diskon sudah berakhir).
+        conditions.push(
+          `is_flash_sale = $${idx} AND (flash_sale_end IS NULL OR flash_sale_end > NOW())`
+        );
+      } else {
+        conditions.push(`is_flash_sale = $${idx}`);
+      }
       params.push(flashSale);
       idx += 1;
     }

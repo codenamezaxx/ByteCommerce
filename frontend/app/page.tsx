@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { productsApi, flashsaleApi } from '@/lib/api';
+import { CATEGORIES } from '@/lib/categories';
 import { formatRupiah } from '@/lib/utils';
 import CountdownTimer from '@/components/CountdownTimer';
 import ProductImage from '@/components/ProductImage';
-import { PageSpinner } from '@/components/Spinner';
+import PhantomSkeleton from '@/components/PhantomSkeleton';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -29,53 +31,6 @@ interface Product {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Category card data (icons from prototype)                          */
-/* ------------------------------------------------------------------ */
-const CATEGORIES = [
-  {
-    label: 'Elektronik',
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="1.5" strokeLinecap="round">
-        <rect x="4" y="4" width="16" height="16" rx="2"/>
-        <line x1="8" y1="10" x2="16" y2="10"/>
-        <line x1="8" y1="14" x2="12" y2="14"/>
-      </svg>
-    ),
-  },
-  {
-    label: 'Fashion',
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="1.5" strokeLinecap="round">
-        <path d="M6 7l6-4 6 4"/>
-        <path d="M5 8v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/>
-        <path d="M9 15h6"/>
-        <path d="M9 11h6"/>
-      </svg>
-    ),
-  },
-  {
-    label: 'Aksesoris',
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="1.5" strokeLinecap="round">
-        <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/>
-        <line x1="12" y1="22" x2="12" y2="15.5"/>
-        <polyline points="22 8.5 12 15.5 2 8.5"/>
-      </svg>
-    ),
-  },
-  {
-    label: 'Kesehatan',
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="1.5" strokeLinecap="round">
-        <circle cx="12" cy="12" r="10"/>
-        <line x1="12" y1="8" x2="12" y2="16"/>
-        <line x1="8" y1="12" x2="16" y2="12"/>
-      </svg>
-    ),
-  },
-];
-
-/* ------------------------------------------------------------------ */
 /*  Helper: discount badge                                             */
 /* ------------------------------------------------------------------ */
 function discountPercent(original: number, discounted: number): number {
@@ -86,9 +41,44 @@ function discountPercent(original: number, discounted: number): number {
 /* ------------------------------------------------------------------ */
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
+// useSearchParams() requires a Suspense boundary for static prerender.
 export default function HomePage() {
+  return (
+    <Suspense fallback={<ProductGridSkeleton />}>
+      <HomeContent />
+    </Suspense>
+  );
+}
+
+/* SSR-safe skeleton grid — phantom-ui cannot render pre-hydration, so the
+   Suspense fallback uses static placeholder blocks instead of a spinner. */
+function ProductGridSkeleton() {
+  return (
+    <section className="page" id="rekomendasi">
+      <div className="container">
+        <p className="eyebrow">PRODUK PILIHAN</p>
+        <h2 style={{ marginBottom: '1.5rem' }}>Rekomendasi Untukmu</h2>
+        <div className="product-grid" aria-hidden="true">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="product-card" style={{ cursor: 'default' }}>
+              <div className="ph-img" />
+              <div className="product-card-body">
+                <div className="ph-skeleton-block" style={{ height: '1rem', width: '85%', marginBottom: '0.5rem' }} />
+                <div className="ph-skeleton-block" style={{ height: '0.8rem', width: '55%', marginBottom: '0.75rem' }} />
+                <div className="ph-skeleton-block" style={{ height: '1.1rem', width: '40%' }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function HomeContent() {
   /* ---- flash sale ---- */
   const [flashProducts, setFlashProducts] = useState<Product[]>([]);
+  const [flashSaleStart, setFlashSaleStart] = useState<Date | null>(null);
   const [flashSaleEnd, setFlashSaleEnd] = useState<Date | null>(null);
 
   /* ---- category counts ---- */
@@ -103,26 +93,44 @@ export default function HomePage() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const loadingRef = useRef(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const paramsProcessedRef = useRef(false);
 
   /* ================================================================
      1. Flash sale + category counts (run once)
      ================================================================ */
+  // Muat (ulang) sesi flash sale. Dipanggil saat mount DAN ketika countdown
+  // berakhir: sesi yang selesai → API mengembalikan kosong → produk flash
+  // sale dihapus dari beranda dan badge kembali "SEGERA HADIR".
+  const loadFlashSale = useCallback(async () => {
+    try {
+      const res: any = await flashsaleApi.active();
+      const items = res?.data?.products || res?.data || res || [];
+      if (Array.isArray(items) && items.length > 0) {
+        setFlashProducts(items);
+        const starts = items
+          .map((p: any) => new Date(p.flash_sale_start))
+          .filter((d: Date) => !isNaN(d.getTime()));
+        const ends = items
+          .map((p: any) => new Date(p.flash_sale_end || p.end_time || p.end_at))
+          .filter((d: Date) => !isNaN(d.getTime()));
+        setFlashSaleStart(starts.length > 0 ? new Date(Math.min(...starts.map(d => d.getTime()))) : null);
+        setFlashSaleEnd(ends.length > 0 ? new Date(Math.min(...ends.map(d => d.getTime()))) : null);
+      } else {
+        setFlashProducts([]);
+        setFlashSaleStart(null);
+        setFlashSaleEnd(null);
+      }
+    } catch {
+      setFlashProducts([]);
+      setFlashSaleStart(null);
+      setFlashSaleEnd(null);
+    }
+  }, []);
+
   useEffect(() => {
-    (async () => {
-      try {
-        const res: any = await flashsaleApi.active();
-        const items = res?.data?.products || res?.data || res || [];
-        if (Array.isArray(items) && items.length > 0) {
-          setFlashProducts(items);
-          const ends = items
-            .map((p: any) => new Date(p.flash_sale_end || p.end_time || p.end_at))
-            .filter((d: Date) => !isNaN(d.getTime()));
-          if (ends.length > 0) {
-            setFlashSaleEnd(new Date(Math.min(...ends.map(d => d.getTime()))));
-          }
-        }
-      } catch { /* no flash sale active */ }
-    })();
+    loadFlashSale();
 
     // Fetch all products once to compute category counts
     (async () => {
@@ -197,6 +205,58 @@ export default function HomePage() {
   }, [hasMore, products.length]);
 
   /* ================================================================
+     3b. Navigation params handler (from navbar cross-page navigation)
+     ================================================================ */
+  useEffect(() => {
+    const flashSale = searchParams.get('flash_sale');
+    const category = searchParams.get('category');
+    const scroll = searchParams.get('scroll');
+
+    const hasParams = !!(flashSale || category || scroll);
+    if (!hasParams) {
+      paramsProcessedRef.current = false;
+      return;
+    }
+    if (paramsProcessedRef.current) return;
+    paramsProcessedRef.current = true;
+
+    /* -- Flash Sale scroll -- */
+    if (flashSale === '1') {
+      setTimeout(() => {
+        const el = document.getElementById('produk') || document.getElementById('rekomendasi');
+        el?.scrollIntoView({ behavior: 'smooth' });
+      }, 300);
+      router.replace('/', { scroll: false });
+      return;
+    }
+
+    /* -- Category / Produk Rekomendasi -- */
+    if (scroll === 'rekomendasi') {
+      const targetCategory = category || null;
+
+      if (targetCategory !== activeCategory) {
+        setActiveCategory(targetCategory);
+        setSearch('');
+        setPage(1);
+        setProducts([]);
+        setHasMore(true);
+        loadingRef.current = false;
+      } else if (page !== 1) {
+        setPage(1);
+        setProducts([]);
+        setHasMore(true);
+        loadingRef.current = false;
+      }
+
+      setTimeout(() => {
+        document.getElementById('rekomendasi')?.scrollIntoView({ behavior: 'smooth' });
+      }, 300);
+
+      router.replace('/', { scroll: false });
+    }
+  }, [searchParams, router, activeCategory, page]);
+
+  /* ================================================================
      4. Search handler
      ================================================================ */
   const handleSearch = (e: React.FormEvent) => {
@@ -223,7 +283,7 @@ export default function HomePage() {
     fetchProducts(1, '', newCat, false);
     // Scroll to products
     setTimeout(() => {
-      document.getElementById('produk')?.scrollIntoView({ behavior: 'smooth' });
+      document.getElementById('rekomendasi')?.scrollIntoView({ behavior: 'smooth' });
     }, 50);
   };
 
@@ -238,7 +298,8 @@ export default function HomePage() {
 
   const scrollToProducts = (e: React.MouseEvent) => {
     e.preventDefault();
-    document.getElementById('produk')?.scrollIntoView({ behavior: 'smooth' });
+    const target = document.getElementById('produk') || document.getElementById('rekomendasi');
+    target?.scrollIntoView({ behavior: 'smooth' });
   };
 
   /* ================================================================
@@ -264,17 +325,32 @@ export default function HomePage() {
         <div className="hero-content">
           <p className="eyebrow" style={{ color: '#94A3B8', marginBottom: '0.75rem' }}>
             FLASH SALE
-            {flashSaleEnd ? '' : ' - SEGERA HADIR'}
+            {!flashSaleEnd || (flashSaleStart && flashSaleStart.getTime() > Date.now()) ? ' - SEGERA HADIR' : ''}
           </p>
           <h1>Flash Sale ByteCommerce</h1>
           <p>Produk diskon terbatas. Stok setiap item terbatas.</p>
-          {flashSaleEnd && (
+          {flashSaleStart && flashSaleStart.getTime() > Date.now() ? (
             <>
-              <CountdownTimer targetDate={flashSaleEnd} showLabels size="lg" />
+              <CountdownTimer
+                targetDate={flashSaleStart}
+                showLabels
+                size="lg"
+                onEnd={() => { setFlashSaleStart(null); loadFlashSale(); }}
+              />
               <div style={{ height: '1.5rem' }} />
             </>
-          )}
-          <a href="#produk" className="btn btn-primary btn-lg" onClick={scrollToProducts}>
+          ) : flashSaleEnd ? (
+            <>
+              <CountdownTimer
+                targetDate={flashSaleEnd}
+                showLabels
+                size="lg"
+                onEnd={() => { setFlashSaleEnd(null); loadFlashSale(); }}
+              />
+              <div style={{ height: '1.5rem' }} />
+            </>
+          ) : null}
+          <a href="#rekomendasi" className="btn btn-primary btn-lg" onClick={scrollToProducts}>
             Lihat Produk
           </a>
         </div>
@@ -295,7 +371,7 @@ export default function HomePage() {
               return (
                 <a
                   key={cat.label}
-                  href="#produk"
+                  href="#rekomendasi"
                   className={`card category-card${isActive ? ' category-card-active' : ''}`}
                   onClick={(e) => { e.preventDefault(); handleCategoryClick(cat.label); }}
                 >
@@ -384,7 +460,7 @@ export default function HomePage() {
       <section
         className="page"
         style={{ paddingTop: flashProducts.length > 0 ? 0 : undefined }}
-        id={flashProducts.length > 0 ? undefined : 'produk'}
+        id="rekomendasi"
       >
         <div className="container">
           <p className="eyebrow">PRODUK PILIHAN</p>
@@ -424,9 +500,23 @@ export default function HomePage() {
             )}
           </form>
 
-          {/* Initial loading spinner */}
+          {/* Initial loading skeleton — phantom-ui measures the template
+              structure below to align shimmer blocks with real card layout */}
           {loading && products.length === 0 ? (
-            <PageSpinner />
+            <PhantomSkeleton loading animation="shimmer" reveal={0.3} stagger={0.03} loading-label="Memuat produk">
+              <div className="product-grid" aria-hidden="true">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="product-card" style={{ cursor: 'default' }}>
+                    <div className="ph-img" />
+                    <div className="product-card-body">
+                      <div className="ph-skeleton-block" style={{ height: '1rem', width: '85%', marginBottom: '0.5rem' }} />
+                      <div className="ph-skeleton-block" style={{ height: '0.8rem', width: '55%', marginBottom: '0.75rem' }} />
+                      <div className="ph-skeleton-block" style={{ height: '1.1rem', width: '40%' }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </PhantomSkeleton>
           ) : products.length === 0 ? (
             <div className="empty-state">
               <h3>Produk tidak ditemukan</h3>

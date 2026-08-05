@@ -1,0 +1,55 @@
+# =============================================================
+# ByteCommerce — Render Blueprint (P10.3)
+#
+# Cara pakai:
+#   1. Push repo ke GitHub, lalu di Render: New > Blueprint
+#   2. Pilih repo — Render membaca file ini otomatis
+#   3. Sesuaikan plan & nilai env di dashboard bila perlu
+#
+# Catatan: PostgreSQL & Redis managed di Render adalah add-on
+# berbayar. Alternatif gratis: deploy compose production sendiri
+# di VPS (lihat docker-compose.prod.yml).
+# =============================================================
+
+services:
+  # ---------- Backend API ----------
+  - type: web
+    name: bytecommerce-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    buildContext: ./backend
+    plan: starter
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "5000"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bytecommerce-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: bytecommerce-redis
+          property: connectionString
+      # generateValue: Render membuat secret acak saat blueprint pertama dibuat
+      - key: JWT_SECRET
+        generateValue: true
+    disk:
+      name: uploads
+      mountPath: /app/uploads
+      sizeGB: 1
+
+  # ---------- Redis Managed ----------
+  - type: redis
+    name: bytecommerce-redis
+    plan: starter
+    maxmemoryPolicy: noeviction
+
+# ---------- PostgreSQL Managed ----------
+databases:
+  - name: bytecommerce-db
+    databaseName: bytecommerce_db
+    user: bytecommerce_user
+    plan: basic-256mb
