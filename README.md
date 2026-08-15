@@ -2,7 +2,7 @@
 
 Platform e-commerce dengan fitur flash sale berkonkurensi tinggi yang menjamin zero-oversell melalui transaksi atomik di database.
 
-![Node.js](https://img.shields.io/badge/Node.js-20 LTS-339933?style=flat&logo=node.js&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-20LTS-339933?style=flat&logo=node.js&logoColor=white)
 ![Express.js](https://img.shields.io/badge/Express.js-4.x-000000?style=flat&logo=express)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat&logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-7-DC382D?style=flat&logo=redis&logoColor=white)
